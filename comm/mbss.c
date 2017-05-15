@@ -69,7 +69,7 @@ void rlk_inic_mbss_init (
 
 #if defined(MULTIPLE_CARD_SUPPORT) || defined(CONFIG_CONCURRENT_INIC_SUPPORT)
 			if (pAd->RaCfgObj.InterfaceNumber >= 0)
-				snprintf(slot_name, sizeof(slot_name), "%s%02d_%d", INIC_INFNAME, pAd->RaCfgObj.InterfaceNumber, index);
+				snprintf(slot_name, sizeof(slot_name), "%s%02d%d", INIC_INFNAME, pAd->RaCfgObj.InterfaceNumber, index);
 			else
 #endif
 				snprintf(slot_name, sizeof(slot_name),"%s%d", INIC_INFNAME, index);
@@ -93,7 +93,7 @@ void rlk_inic_mbss_init (
 
 #if defined(MULTIPLE_CARD_SUPPORT) || defined(CONFIG_CONCURRENT_INIC_SUPPORT)
 			if (pAd->RaCfgObj.InterfaceNumber >= 0)
-				snprintf(new_dev_p->name, sizeof(new_dev_p->name), "%s%02d_%d", INIC_INFNAME, pAd->RaCfgObj.InterfaceNumber, index);
+				snprintf(new_dev_p->name, sizeof(new_dev_p->name), "%s%02d%d", INIC_INFNAME, pAd->RaCfgObj.InterfaceNumber, index);
 			else
 #endif		
 				snprintf(new_dev_p->name, sizeof(new_dev_p->name), "%s%d", INIC_INFNAME, index);

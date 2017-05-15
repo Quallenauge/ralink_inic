@@ -37,7 +37,7 @@
 	#define UINT32       unsigned int
 #endif
 
-#define INIC_INFNAME			"ra"
+#define INIC_INFNAME			"wl"
 #define FIRMWARE_PATH "iNIC/" CHIP_NAME INTERFACE "/"
 
 #if (CONFIG_INF_TYPE == INIC_INF_TYPE_MII)

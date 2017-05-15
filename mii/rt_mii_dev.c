@@ -506,7 +506,7 @@ static int __init rlk_inic_init(void) {
 
 	for (i = 0; i < 32; i++) {
 #ifdef CONFIG_CONCURRENT_INIC_SUPPORT
-		snprintf(dev->name, sizeof(dev->name), "%s00_%d", INIC_INFNAME, i);
+		snprintf(dev->name, sizeof(dev->name), "%s00%d", INIC_INFNAME, i);
 #else
 		snprintf(name, sizeof(name), "%s%d", INIC_INFNAME, i);
 #endif // CONFIG_CONCURRENT_INIC_SUPPORT //
@@ -523,7 +523,7 @@ static int __init rlk_inic_init(void) {
 	}
 
 #ifdef CONFIG_CONCURRENT_INIC_SUPPORT
-	snprintf(dev->name, sizeof(dev->name), "%s00_%d", INIC_INFNAME, i);
+	snprintf(dev->name, sizeof(dev->name), "%s00%d", INIC_INFNAME, i);
 #else
 	snprintf(dev->name, sizeof(dev->name), "%s%d", INIC_INFNAME, i);
 #endif // CONFIG_CONCURRENT_INIC_SUPPORT //
@@ -592,7 +592,7 @@ static int __init rlk_inic_init(void) {
 #endif
 	dev2->netdev_ops = &Netdev_Ops[1];
 	for (i = 0; i < 32; i++) {
-		snprintf(name, sizeof(name), "%s01_%d", INIC_INFNAME, i);
+		snprintf(name, sizeof(name), "%s01%d", INIC_INFNAME, i);
 
 		device = DEV_GET_BY_NAME(name);
 		if (device == NULL)
@@ -605,7 +605,7 @@ static int __init rlk_inic_init(void) {
 		goto err_out_free;
 	}
 
-	snprintf(dev2->name, sizeof(dev2->name), "%s01_%d", INIC_INFNAME, i);
+	snprintf(dev2->name, sizeof(dev2->name), "%s01%d", INIC_INFNAME, i);
 
 	// Be sure to init racfg before register_netdev,Otherwise 
 	// network manager cannot identify ra0 as wireless device
