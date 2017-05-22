@@ -849,7 +849,8 @@ static int RaCfgBacklogThread(void *arg)
 	while (!kthread_should_stop()
 			&& !signal_pending(current))
 	{
-		rc = wait_event_interruptible_timeout(pAd->RaCfgObj.backlogQH, !kfifo_is_empty(&pAd->RaCfgObj.backlog_fifo), HZ/10);
+		rc = wait_event_interruptible_timeout(pAd->RaCfgObj.backlogQH, !kfifo_is_empty(&pAd->RaCfgObj.backlog_fifo) || kthread_should_stop(), HZ/10);
+		if(kthread_should_stop()) break;
 		if(rc == -ERESTARTSYS)
 			break;
 		else if(rc ==0){
@@ -885,7 +886,8 @@ static int RaCfgTaskThread(void *arg)
 
 	while (!kthread_should_stop())
 	{
-		rc = wait_event_interruptible(pAd->RaCfgObj.taskQH, !kfifo_is_empty(&pAd->RaCfgObj.task_fifo));
+		rc = wait_event_interruptible(pAd->RaCfgObj.taskQH, !kfifo_is_empty(&pAd->RaCfgObj.task_fifo) || kthread_should_stop());
+		if(kthread_should_stop()) break;
 		if(rc == -ERESTARTSYS) break;
 //		else if(rc ==0){
 ////			DBGPRINT("Task FIFO is empty");
