@@ -321,6 +321,9 @@ static int mii_close(struct net_device *dev) {
 //#endif
 	RaCfgInterfaceClose(pAd);
 
+#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
+	ConcurrentObj.CardCount--;
+#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 	return 0;
 }
 
