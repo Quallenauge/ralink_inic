@@ -352,8 +352,8 @@ void FeedbackRspHandler(iNIC_PRIVATE *pAd, struct sk_buff *skb);
 int RaCfgDropRemoteInBandFrame(struct sk_buff *skb);
 void RaCfgInterfaceOpen(iNIC_PRIVATE *pAd);
 void RaCfgInterfaceClose(iNIC_PRIVATE *pAd);
-
-
+void RaCfgAddHeartBeatTimer(iNIC_PRIVATE *pAd);
+void RaCfgDelHeartBeatTimer(iNIC_PRIVATE *pAd);
 
 struct net_device *current_device(void);
 int RTMPIoctlHandler(iNIC_PRIVATE *pAd, int cmd, IW_TYPE type, int dev_id, struct iwreq *wrq, char *kernel_data, boolean bIW_Handler);

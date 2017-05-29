@@ -90,9 +90,6 @@ extern void racfg_inband_hook_init(iNIC_PRIVATE *pAd);
 extern void racfg_inband_hook_cleanup(void);
 #endif
 
-static void RaCfgAddHeartBeatTimer(iNIC_PRIVATE *pAd);
-static void RaCfgDelHeartBeatTimer(iNIC_PRIVATE *pAd);
-
 #ifdef WOWLAN_SUPPORT
 static void RaCfgAddWowInbandTimer(iNIC_PRIVATE *pAd);
 static void RaCfgDelHeartWowInbandTimer(iNIC_PRIVATE *pAd);
@@ -187,7 +184,7 @@ void RaCfgRestart(iNIC_PRIVATE *pAd)
 }
 #endif
 
-static void RaCfgAddHeartBeatTimer(iNIC_PRIVATE *pAd)
+void RaCfgAddHeartBeatTimer(iNIC_PRIVATE *pAd)
 {
 
 #ifdef CONFIG_CONCURRENT_INIC_SUPPORT
@@ -223,7 +220,7 @@ static void RaCfgAddHeartBeatTimer(iNIC_PRIVATE *pAd)
 	RTMP_SEM_UNLOCK(&pAd->RaCfgObj.timerLock);
 }
 
-static void RaCfgDelHeartBeatTimer(iNIC_PRIVATE *pAd)
+void RaCfgDelHeartBeatTimer(iNIC_PRIVATE *pAd)
 {
 
 #ifdef CONFIG_CONCURRENT_INIC_SUPPORT
