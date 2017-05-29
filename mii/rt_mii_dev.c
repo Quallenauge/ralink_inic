@@ -211,6 +211,63 @@ static int in_band_rcv(struct sk_buff *skb, struct net_device *dev, \
 static struct packet_type in_band_packet_type = { .type = __constant_htons(
 		ETH_P_ALL), .func = in_band_rcv, };
 
+/* netdev event handler */
+static int ralink_netdev_event(struct notifier_block *this, unsigned long event,
+							 void *ptr)
+{
+	struct net_device *netdev = netdev_notifier_info_to_dev(ptr);
+	struct net_device *master;
+
+	//printk("Got netdev (dev: %s) event: 0%02lx\n", netdev->name, event);
+	if (iNIC_initialized && !strcmp(netdev->name,miimaster)){
+		if (event == NETDEV_REGISTER){
+			master = DEV_GET_BY_NAME(miimaster);
+			if (master == NULL) {
+				printk("Master device (%s) isn't accessible. Ignoring event.\n",miimaster);
+				goto done;
+			}else{
+				dev_put(master);
+			}
+			printk("Master device (%s) has turned on. Setup internal references to new master at 0x%p\n",miimaster, master);
+			// Set new master device
+			SET_NETDEV_DEV(gAdapter[0]->dev, DEV_SHORTCUT(master));
+			gAdapter[0]->master = master;
+#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
+			SET_NETDEV_DEV(gAdapter[1]->dev, DEV_SHORTCUT(master));
+			gAdapter[1]->master = master;
+#endif
+		}else if (event == NETDEV_GOING_DOWN){
+			netdev_info(gAdapter[0]->dev, "Stopping heart beat timer and closing device.\n");
+			RaCfgDelHeartBeatTimer(gAdapter[0]);
+			dev_close(gAdapter[0]->dev);
+#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
+			netdev_info(gAdapter[1]->dev, "Stopping heart beat timer and closing device.\n");
+			RaCfgDelHeartBeatTimer(gAdapter[1]);
+			dev_close(gAdapter[1]->dev);
+#endif
+			printk("Remove inband packet type from master device (%s)\n", miimaster);
+			dev_remove_pack(&in_band_packet_type);
+		}else if (event == NETDEV_UP){
+			printk("Register inband packet type to master device (%s)\n", miimaster);
+			in_band_packet_type.dev = gAdapter[0]->master; /* hook only on mii master device */
+			dev_add_pack(&in_band_packet_type);
+
+			dev_open(gAdapter[0]->dev);
+			RaCfgAddHeartBeatTimer(gAdapter[0]);
+#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
+			dev_open(gAdapter[1]->dev);
+			RaCfgAddHeartBeatTimer(gAdapter[1]);
+#endif
+		}
+	}
+done:
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block ralink_netdev_notifier = {
+	.notifier_call = ralink_netdev_event
+};
+
 //#define DEBUG_HOOK 1
 #ifdef DEBUG_HOOK
 static int sniff_arp(struct sk_buff *skb, struct net_device *dev, \
@@ -640,6 +697,7 @@ static int __init rlk_inic_init(void) {
 
 #endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
+	register_netdevice_notifier(&ralink_netdev_notifier);
 	return rc;
 
 	err_out_free:
@@ -698,6 +756,7 @@ static void __exit rlk_inic_exit(void) {
 #endif
 
 	RaCfgExit(pAd);
+	unregister_netdevice_notifier(&ralink_netdev_notifier);
 	free_netdev(dev);
 	gpio_free(reset_gpio);
 }
