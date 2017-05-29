@@ -98,7 +98,7 @@ static void RaCfgAddWowInbandTimer(iNIC_PRIVATE *pAd);
 static void RaCfgDelHeartWowInbandTimer(iNIC_PRIVATE *pAd);
 #endif 
 
-int init_flag = 0;
+int iNIC_initialized = 0;
 
 #ifdef NM_SUPPORT
 
@@ -759,8 +759,8 @@ static int get_mac_from_inic(iNIC_PRIVATE *pAd)
 {
 	int ret = 0;
 
-	printk("ConcurrentObj.CardCount=%d init_flag=%d\n", ConcurrentObj.CardCount, init_flag);
-	if (init_flag) {
+	printk("ConcurrentObj.CardCount=%d init_flag=%d\n", ConcurrentObj.CardCount, iNIC_initialized);
+	if (iNIC_initialized) {
 		pAd->RaCfgObj.bGetMac = TRUE;
 		pAd->RaCfgObj.fw_upload_counter = 0;
 		return ret;
@@ -803,7 +803,7 @@ static int get_mac_from_inic(iNIC_PRIVATE *pAd)
 #ifdef NM_SUPPORT
 		we_fw_uploaded(pAd);
 #endif
-		init_flag = 1;
+		iNIC_initialized = 1;
 	}
 	}
 	return ret;

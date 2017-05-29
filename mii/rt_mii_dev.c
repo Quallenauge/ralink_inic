@@ -71,7 +71,16 @@ static int mii_close(struct net_device *dev);
 static int mii_send_packet(struct sk_buff *skb, struct net_device *dev);
 static struct net_device_stats *mii_get_stats(struct net_device *netdev);
 
-extern int init_flag;
+/*
+ * Indicates, that the profile and firmware was
+ * uploaded to the iNIC. Then the iNIC has
+ * booted successfully.
+ */
+extern int iNIC_initialized;
+/*
+ * Indicates, that the packet type was temporary
+ */
+int packet_temporary_disabled=0;
 
 static int mii_hardware_reset(int op) {
 	DBGPRINT("-----> %s\n", __FUNCTION__);
@@ -276,7 +285,7 @@ static int mii_open(struct net_device *dev) {
 	}
 
 	printk("iNIC Open %s\n", dev->name);
-	if(pAd->RaCfgObj.InterfaceNumber == 0 && init_flag == 0){
+	if(pAd->RaCfgObj.InterfaceNumber == 0 && iNIC_initialized == 0){
 		mii_hardware_reset(0);
 		msleep(1000);
 		mii_hardware_reset(1);
