@@ -1,6 +1,8 @@
 #include "rlk_inic.h"
 #include <linux/delay.h>
 #include <linux/firmware.h>
+#include <linux/signal.h>
+#include <linux/sched/signal.h>
 
 #ifdef WOWLAN_SUPPORT
 #include <linux/suspend.h>
