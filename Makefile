@@ -89,6 +89,7 @@ _CFLAGS += -I$(RALINK_SRC)/comm
 _CFLAGS += -D__KERNEL__ 
 _CFLAGS += -O0 -g -Wall -Wstrict-prototypes -Wno-trigraphs 
 _CFLAGS += -DDBG -DFIX_POTENTIAL_BUG #-DINBAND_DEBUG
+_CFLAGS += -Wno-error=unused-variable
 _CFLAGS += $(WFLAGS)
 
 PCI_OBJS := pci/rt_pci_dev.o

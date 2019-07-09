@@ -69,7 +69,11 @@ static void RaCfgInitCfgAction(void *);
 static void RaCfgUploadAction(void *);
 static void RaCfgRestartiNIC(void *);
 static void RaCfgFifoRestart(iNIC_PRIVATE *pAd);
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 static void RaCfgHeartBeatTimeOut(unsigned long);
+#else
+static void RaCfgHeartBeatTimeOut(struct timer_list *t);
+#endif
 static void RaCfgInitThreads(iNIC_PRIVATE *pAd);
 static void RaCfgKillThread(iNIC_PRIVATE *pAd);
 void ReadCrcHeader(CRC_HEADER *hdr, unsigned char *buffer);
@@ -214,9 +218,13 @@ void RaCfgAddHeartBeatTimer(iNIC_PRIVATE *pAd)
 
 	if (!pAd->RaCfgObj.heartBeat.function)
 	{
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 		init_timer(&pAd->RaCfgObj.heartBeat);
 		pAd->RaCfgObj.heartBeat.function = RaCfgHeartBeatTimeOut;
 		pAd->RaCfgObj.heartBeat.data = (unsigned long)pAd;
+#else
+		timer_setup(&pAd->RaCfgObj.heartBeat, (void *)&RaCfgHeartBeatTimeOut, 0);
+#endif
 	}
 	mod_timer(&pAd->RaCfgObj.heartBeat, jiffies + HEART_BEAT_TIMEOUT * HZ);
 	RTMP_SEM_UNLOCK(&pAd->RaCfgObj.timerLock);
@@ -238,8 +246,10 @@ void RaCfgDelHeartBeatTimer(iNIC_PRIVATE *pAd)
 	{
 		printk("Delete HeartBeatTimer ....\n");
 		del_timer_sync(&pAd->RaCfgObj.heartBeat);
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 		pAd->RaCfgObj.heartBeat.function = NULL;
 		pAd->RaCfgObj.heartBeat.data = 0;
+#endif
 	}
 	RTMP_SEM_UNLOCK(&pAd->RaCfgObj.timerLock);
 }
@@ -476,9 +486,15 @@ static void RaCfgInitThreads(iNIC_PRIVATE *pAd)
 }
 
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 static void RaCfgHeartBeatTimeOut(unsigned long arg)
 {
 	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *)arg;
+#else
+static void RaCfgHeartBeatTimeOut(struct timer_list *t)
+{
+	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *) from_timer(pAd, t, RaCfgObj.heartBeat);
+#endif
 	HndlTask new_task;
 
 #ifndef NM_SUPPORT
@@ -1180,10 +1196,16 @@ static void FreeArgBox(ArgBox *box)
 }
 
 #ifdef RETRY_PKT_SEND
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 static void upload_timeout(uintptr_t arg)
 {
 	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *)arg;
-	
+#else
+static void upload_timeout(struct timer_list *t)
+{
+	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *) from_timer(pAd, t, RaCfgObj.uploadTimer);
+#endif
+
 	if(pAd->RaCfgObj.RPKTInfo.retry > 0){
 		SendRaCfgCommand(pAd, 
 				 RACFG_CMD_TYPE_BOOTSTRAP & RACFG_CMD_TYPE_PASSIVE_MASK, 
@@ -1197,8 +1219,10 @@ static void upload_timeout(uintptr_t arg)
 		if (pAd->RaCfgObj.uploadTimer.function)
 		{
 			del_timer_sync(&pAd->RaCfgObj.uploadTimer);
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 			pAd->RaCfgObj.uploadTimer.function = NULL;
 			pAd->RaCfgObj.uploadTimer.data = 0;
+#endif
 		}
 	}
 }
@@ -1260,9 +1284,13 @@ static void _upload_firmware(iNIC_PRIVATE *pAd)
 	//turn-on timer
 	if (!pAd->RaCfgObj.uploadTimer.function)
 	{
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 		init_timer(&pAd->RaCfgObj.uploadTimer);
 		pAd->RaCfgObj.uploadTimer.function = upload_timeout;
 		pAd->RaCfgObj.uploadTimer.data = (uintptr_t)pAd;
+#else
+		timer_setup(&pAd->RaCfgObj.uploadTimer, (void *)&upload_timeout, 0);
+#endif
 	}
 	mod_timer(&pAd->RaCfgObj.uploadTimer, jiffies + RetryTimeOut*HZ/1000);
 #endif
@@ -1281,8 +1309,10 @@ static void _upload_firmware(iNIC_PRIVATE *pAd)
 	if (pAd->RaCfgObj.uploadTimer.function)
 	{
 		del_timer_sync(&pAd->RaCfgObj.uploadTimer);
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 		pAd->RaCfgObj.uploadTimer.function = NULL;
 		pAd->RaCfgObj.uploadTimer.data = 0;
+#endif
 	}
 #endif
 
@@ -1778,9 +1808,13 @@ static void _upload_profile(iNIC_PRIVATE *pAd)
 		// turn-on timer
 		if (!pAd->RaCfgObj.uploadTimer.function)
 		{
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 			init_timer(&pAd->RaCfgObj.uploadTimer);
 			pAd->RaCfgObj.uploadTimer.function = upload_timeout;
 			pAd->RaCfgObj.uploadTimer.data = (uintptr_t)pAd;
+#else
+			timer_setup(&pAd->RaCfgObj.uploadTimer, (void *)&upload_timeout, 0);
+#endif
 		}
 		if(pAd->RaCfgObj.RPKTInfo.Seq == 0)
 			mod_timer(&pAd->RaCfgObj.uploadTimer, jiffies + HZ);
@@ -1927,9 +1961,13 @@ static void RaCfgOpenAction(uintptr_t arg)
 		// turn-on timer
 		if (!pAd->RaCfgObj.uploadTimer.function)
 		{
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 			init_timer(&pAd->RaCfgObj.uploadTimer);
 			pAd->RaCfgObj.uploadTimer.function = upload_timeout;
 			pAd->RaCfgObj.uploadTimer.data = (uintptr_t)pAd;
+#else
+			timer_setup(&pAd->RaCfgObj.uploadTimer, (void *)&upload_timeout, 0);
+#endif
 		}
 		if(pAd->RaCfgObj.RPKTInfo.Seq == 0)
 			mod_timer(&pAd->RaCfgObj.uploadTimer, jiffies + HZ);
@@ -2116,8 +2154,10 @@ static void RaCfgInitCfgAction(void * arg)
 			if (pAd->RaCfgObj.uploadTimer.function)
 			{
 				del_timer_sync(&pAd->RaCfgObj.uploadTimer);
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 				pAd->RaCfgObj.uploadTimer.function = NULL;
 				pAd->RaCfgObj.uploadTimer.data = 0;
+#endif
 			}
 		#endif
 			_upload_profile(pAd);
@@ -3970,9 +4010,15 @@ static void RaCfgWowInbandSend(uintptr_t arg)
 	
 }
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 static void RaCfgWowInbandTimeout(uintptr_t arg)
 {
 	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *)arg;
+#else
+static void RaCfgWowInbandTimeout(struct timer_list *t)
+{
+	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *) from_timer(pAd, t, &pAd->RaCfgObj.WowInbandSignalTimer);
+#endif
 	
 #ifndef NM_SUPPORT
 	if (!NETIF_IS_UP(pAd->RaCfgObj.MainDev))
@@ -4006,9 +4052,13 @@ static void RaCfgAddWowInbandTimer(iNIC_PRIVATE *pAd)
 
 	if (!pAd->RaCfgObj.WowInbandSignalTimer.function)
 	{
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 		init_timer(&pAd->RaCfgObj.WowInbandSignalTimer);
 		pAd->RaCfgObj.WowInbandSignalTimer.function = RaCfgWowInbandTimeout;
 		pAd->RaCfgObj.WowInbandSignalTimer.data = (uintptr_t)pAd;
+#else
+		timer_setup(&pAd->RaCfgObj.WowInbandSignalTimer, (void *)&RaCfgWowInbandTimeout, 0);
+#endif
 	}
 	mod_timer(&pAd->RaCfgObj.WowInbandSignalTimer, jiffies + WOW_INBAND_TIMEOUT * HZ);
 	RTMP_SEM_UNLOCK(&pAd->RaCfgObj.WowInbandSignalTimerLock);
@@ -4023,8 +4073,10 @@ static void RaCfgDelHeartWowInbandTimer(iNIC_PRIVATE *pAd)
 	if (pAd->RaCfgObj.WowInbandSignalTimer.function)
 	{
 		del_timer_sync(&pAd->RaCfgObj.WowInbandSignalTimer);
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,15,0)
 		pAd->RaCfgObj.WowInbandSignalTimer.function = NULL;
 		pAd->RaCfgObj.WowInbandSignalTimer.data = 0;
+#endif
 	}
 	RTMP_SEM_UNLOCK(&pAd->RaCfgObj.WowInbandSignalTimerLock);
 }
