@@ -109,13 +109,15 @@ extern s32 MC_CardIrq[MAX_NUM_OF_MULTIPLE_CARD];
 #endif // MESH_SUPPORT //
 
 #define IFNAMSIZ            16
-#define INT_MAIN        0x0100
-#define INT_MBSSID      0x0200
-#define INT_WDS         0x0300
-#define INT_APCLI       0x0400
-#ifdef MESH_SUPPORT
-#define INT_MESH        0x0500
-#endif // MESH_SUPPORT //
+// !! Be careful to not interfere with enum netdev_priv_flags definition in linux/include/linux/netdevice.h !!
+#define INT_MAIN        0x0
+#define INT_MBSSID      1<<29
+#define INT_WDS         1<<30
+#define INT_APCLI       1<<31
+// Mesh support isn't supported
+//#ifdef MESH_SUPPORT
+//#define INT_MESH        0x500
+//#endif // MESH_SUPPORT //
 
 #define MAX_INI_BUFFER_SIZE			4096
 #define MAX_PARAM_BUFFER_SIZE		(2048) 
