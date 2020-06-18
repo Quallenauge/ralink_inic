@@ -493,10 +493,10 @@ static void inline force_net_running(struct net_device *netdev)
 	iNIC_PRIVATE *pAd = netdev_priv(netdev);
 
 	if (!netif_running(pAd->master))
-		dev_change_flags(pAd->master, pAd->master->flags|IFF_UP|IFF_PROMISC);
+		dev_change_flags(pAd->master, pAd->master->flags|IFF_UP|IFF_PROMISC, NULL);
 #else
 	if (!netif_running(netdev))
-		dev_change_flags(netdev, netdev->flags|IFF_UP);
+		dev_change_flags(netdev, netdev->flags|IFF_UP, NULL);
 #endif // !INIC_INF_TYPE_MII
 }
 #endif

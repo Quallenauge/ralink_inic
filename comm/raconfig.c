@@ -155,7 +155,7 @@ void RaCfgShutdown(iNIC_PRIVATE *pAd)
 
 	/* close interface ra0 */
 	pAd->RaCfgObj.flg_is_open = 0;
-	dev_change_flags(pAd->dev, pAd->dev->flags & ~IFF_UP);
+	dev_change_flags(pAd->dev, pAd->dev->flags & ~IFF_UP, NULL);
 	//pAd->dev->stop(pAd->dev);
 	hardware_reset(pAd, 0);
 	we_shutdowned(pAd);
@@ -168,7 +168,7 @@ void RaCfgStartup(iNIC_PRIVATE *pAd)
 
 	/* startup interface ra0 */
 	pAd->RaCfgObj.flg_is_open = 1;
-	//dev_change_flags(pAd->dev, IFF_UP);
+	//dev_change_flags(pAd->dev, IFF_UP, NULL);
 	hardware_reset(pAd, 1);
 	/* resume the heartbeat timer */
 	pAd->RaCfgObj.fw_upload_counter = 0;
@@ -650,8 +650,8 @@ void RaCfgSetUp(iNIC_PRIVATE *pAd, struct net_device *dev)
 
 	printk("Op mode = %d\n", pAd->RaCfgObj.opmode);
 #if 0 //def CONFIG_RT2880_INIC_MII
-	dev_change_flags(pAd->master, pAd->master->flags | IFF_PROMISC);
-	dev_change_flags(pAd->dev, pAd->dev->flags | IFF_PROMISC);
+	dev_change_flags(pAd->master, pAd->master->flags | IFF_PROMISC, NULL);
+	dev_change_flags(pAd->dev, pAd->dev->flags | IFF_PROMISC, NULL);
 #endif
 	if (pAd->RaCfgObj.opmode)
 	{

@@ -393,7 +393,7 @@ int rlk_inic_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
 	if (!is_fw_running(rt))
 		return -EINVAL;
 
-	if (access_ok(VERIFY_READ, wrq->u.data.pointer, wrq->u.data.length) != TRUE)
+	if (access_ok(wrq->u.data.pointer, wrq->u.data.length) != TRUE)
 		return rc;
 
 
@@ -492,7 +492,7 @@ int rlk_inic_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
 				table_size = (rt->RaCfgObj.opmode) ? sizeof(ap_privtab_i) : sizeof(sta_privtab_i);
 				entry_size = (rt->RaCfgObj.opmode) ? sizeof(ap_privtab_i[0]) : sizeof(sta_privtab_i[0]);
 
-				if (access_ok(VERIFY_WRITE, wrq->u.data.pointer, table_size) != TRUE)
+				if (access_ok(wrq->u.data.pointer, table_size) != TRUE)
 					break;
 				wrq->u.data.length = table_size / entry_size;
 				if (copy_to_user(wrq->u.data.pointer, privtable_i, table_size))
@@ -541,7 +541,7 @@ int rlk_inic_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
 
 				privtable_i = (struct iw_priv_args  *) ((rt->RaCfgObj.opmode) ? ap_privtab_i : sta_privtab_i);
 
-				if (access_ok(VERIFY_WRITE, wrq->u.data.pointer, sizeof(privtable_i)) != TRUE)
+				if (access_ok(wrq->u.data.pointer, sizeof(privtable_i)) != TRUE)
 					break;
 
 				/* for wpa_supplicant */

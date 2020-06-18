@@ -252,10 +252,10 @@ static int ralink_netdev_event(struct notifier_block *this, unsigned long event,
 			in_band_packet_type.dev = gAdapter[0]->master; /* hook only on mii master device */
 			dev_add_pack(&in_band_packet_type);
 
-			dev_open(gAdapter[0]->dev);
+			dev_open(gAdapter[0]->dev, NULL);
 			RaCfgAddHeartBeatTimer(gAdapter[0]);
 #ifdef CONFIG_CONCURRENT_INIC_SUPPORT
-			dev_open(gAdapter[1]->dev);
+			dev_open(gAdapter[1]->dev, NULL);
 			RaCfgAddHeartBeatTimer(gAdapter[1]);
 #endif
 		}
