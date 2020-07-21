@@ -121,10 +121,6 @@ typedef struct arg_box
 #define RACFG_CMD_WDS_CLOSE           0x0004
 #define RACFG_CMD_APCLI_OPEN          0x0005
 #define RACFG_CMD_APCLI_CLOSE         0x0006
-#ifdef MESH_SUPPORT
-#define RACFG_CMD_MESH_OPEN           0x0007
-#define RACFG_CMD_MESH_CLOSE          0x0008
-#endif // MESH_SUPPORT //
 
 /* IW HANDLER Command ID */
 /* Must enumerate the Command ID from 0x0001 */
@@ -185,11 +181,9 @@ typedef struct arg_box
 #define RTPRIV_IOCTL_SWITCH							(SIOCIWFIRSTPRIV + 0x1d)
 
 
-#ifdef NM_SUPPORT
 #define RTPRIV_IOCTL_RESET						    (SIOCIWFIRSTPRIV + 0x20)
 #define RTPRIV_IOCTL_SHUTDOWN						(SIOCIWFIRSTPRIV + 0x21)
 #define RTPRIV_IOCTL_RESTART					    (SIOCIWFIRSTPRIV + 0x22)
-#endif
 
 
 
@@ -200,21 +194,9 @@ enum {
     SHOW_DESC_INFO = 7,
 	RAIO_OFF = 10,
     RAIO_ON = 11,
-#ifdef MESH_SUPPORT
-	SHOW_MESH_INFO = 12,
-	SHOW_NEIGHINFO_INFO = 13,
-	SHOW_MESH_ROUTE_INFO = 14,
-	SHOW_MESH_ENTRY_INFO = 15,
-	SHOW_MULPATH_INFO = 16,
-	SHOW_MCAST_AGEOUT_INFO = 17,
-	SHOW_MESH_PKTSIG_INFO = 18,
-#endif // MESH_SUPPORT //
     SHOW_DLS_ENTRY_INFO = 19,
 	SHOW_CFG_VALUE = 20,
 	SHOW_ADHOC_ENTRY_INFO = 21,
-#ifdef MESH_SUPPORT
-	SHOW_MESH_PROXY_INFO = 22,
-#endif // MESH_SUPPORT //
 	SHOW_ACM_BADNWIDTH = 23,
 	SHOW_ACM_STREAM = 24,
 	SHOW_TDLS_ENTRY_INFO = 25,
@@ -252,42 +234,24 @@ enum {
 };
 
 #if (CONFIG_INF_TYPE == INIC_INF_TYPE_MII)
-#ifdef PHASE_LOAD_CODE
 #define GET_MAC_TIMEOUT    30   // 30 secs
-#else
-#define GET_MAC_TIMEOUT    40   // 40 secs
-#endif
 #else
 #define GET_MAC_TIMEOUT    20   // 20 secs
 #endif
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 #undef GET_MAC_TIMEOUT
 #define GET_MAC_TIMEOUT    40   // 50 secs
-#endif
 
 
 #define HEART_BEAT_TIMEOUT    10   // 10 secs
-
-#ifdef WOWLAN_SUPPORT
-#define WOW_INBAND_TIMEOUT    2   // 2 secs
-
-#define WOW_CPU_UP			 0
-#define WOW_CPU_DOWN		 1 
-#endif // #ifdef WOWLAN_SUPPORT // 
 
 /* IOCTL param type */
 
 
 #define DEV_TYPE_APCLI_FLAG 0x8000  // (1 << 15)
 #define DEV_TYPE_WDS_FLAG   0x4000  // (1 << 14)
-#ifdef MESH_SUPPORT
-#define DEV_TYPE_MESH_FLAG  0x2000  // (1 << 13)
-#endif // MESH_SUPPORT //
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 #define DEV_TYPE_CONCURRENT_FLAG  0x0100  // (1 << 8)
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 typedef enum _IW_TYPE
 {
@@ -305,9 +269,6 @@ typedef enum _SOURCE_TYPE {
     SOURCE_MBSS=0,
     SOURCE_WDS,
     SOURCE_APCLI
-#ifdef MESH_SUPPORT
-    ,SOURCE_MESH
-#endif // MESH_SUPPORT //
 } SOURCE_TYPE;
 
 #define KERNEL_THREAD_BEGIN(name)	\
@@ -323,21 +284,15 @@ typedef enum _SOURCE_TYPE {
 
 #define OID_802_11_BSSID_LIST						0x0609
 
-#ifdef WOWLAN_SUPPORT
-#define RT_OID_802_11_WAKEUP_SYNC  					0x0820
-#endif // WOWLAN_SUPPORT //
-
 #define ROUND_UP(__x, __y) \
         (((uintptr_t)((__x)+((__y)-1))) & ((uintptr_t)~((__y)-1)))
 
 #define NDIS_STATUS_SUCCESS                     0x00
 #define NDIS_STATUS_FAILURE                     0x01
 
-#ifdef NM_SUPPORT
 void RaCfgShutdown(iNIC_PRIVATE *pAd);
 void RaCfgStartup(iNIC_PRIVATE *pAd);
 void RaCfgRestart(iNIC_PRIVATE *pAd);
-#endif
 
 void RaCfgWriteFile(iNIC_PRIVATE *pAd, FWHandle *fh, char *buff, int len);
 int RaCfgOpenFile(iNIC_PRIVATE *pAd, FWHandle *fh, int flag);
@@ -388,9 +343,6 @@ void rlk_inic_mbss_init (struct net_device *main_dev_p, iNIC_PRIVATE *ad_p);
 int MBSS_Find_DevID(struct net_device *main_dev, struct net_device *mbss_dev);
 int APCLI_Find_DevID(struct net_device *main_dev, struct net_device *apcli_dev);
 int WDS_Find_DevID(struct net_device *main_dev, struct net_device *wds_dev);
-#ifdef MESH_SUPPORT
-int MESH_Find_DevID(struct net_device *main_dev, struct net_device *mesh_dev);
-#endif // MESH_SUPPORT //
 
 struct sk_buff*  Insert_Vlan_Tag(iNIC_PRIVATE *rt, struct sk_buff *skb_p, int dev_id, SOURCE_TYPE dev_source);
 unsigned char Remove_Vlan_Tag(iNIC_PRIVATE *rt, struct sk_buff *skb);
@@ -404,40 +356,27 @@ void rlk_inic_apcli_init (struct net_device *main_dev_p, iNIC_PRIVATE *ad_p);
 void rlk_inic_apcli_remove(iNIC_PRIVATE *ad_p);
 int rlk_inic_apcli_close(iNIC_PRIVATE *ad_p);
 
-#ifdef MESH_SUPPORT
-void rlk_inic_mesh_init (struct net_device *main_dev_p, iNIC_PRIVATE *ad_p);
-void rlk_inic_mesh_remove(iNIC_PRIVATE *ad_p);
-int rlk_inic_mesh_close(iNIC_PRIVATE *ad_p);
-#endif // MESH_SUPPORT //
-
 int rlk_inic_open(struct net_device *dev);
 int rlk_inic_close (struct net_device *dev);
 
 void rlk_inic_mbss_restart(void *arg);
 void rlk_inic_wds_restart(void *arg);
 void rlk_inic_apcli_restart(void *arg);
-#ifdef MESH_SUPPORT
-void rlk_inic_mesh_restart(void *arg);
-#endif // MESH_SUPPORT //
 
 #ifdef MULTIPLE_CARD_SUPPORT
 boolean CardInfoRead(iNIC_PRIVATE *pAd);
 #endif
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 void ConcurrentCardInfoRead(void);
 void DispatchAdapter(iNIC_PRIVATE **ppAd, struct sk_buff *skb);
 void SetRadioOn(iNIC_PRIVATE *pAd, u8 Operation);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 extern struct net_device *S_device;
 extern unsigned char RaCfgCmdHdr[];
 extern unsigned int debug_level, temp_debug_level;
 extern char *mode, *mac;
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 extern char *mac2;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 #ifdef DBG
 extern char *root;
@@ -484,7 +423,6 @@ static int inline is_fw_running(iNIC_PRIVATE *pAd)
 
 struct iw_handler_def* get_wireless_handler(void);
 
-#ifdef NM_SUPPORT
 static void inline force_net_running(struct net_device *netdev)
 {
     // Network manager may issue this ioctl
@@ -499,5 +437,4 @@ static void inline force_net_running(struct net_device *netdev)
 		dev_change_flags(netdev, netdev->flags|IFF_UP, NULL);
 #endif // !INIC_INF_TYPE_MII
 }
-#endif
 #endif /* __RACONFIG_H__*/

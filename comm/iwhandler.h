@@ -542,7 +542,6 @@ struct iw_priv_args sta_privtab_i[] = {
 		.set_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 0,
 		.name = "wsc_gen_pincode",
 	},
-#ifdef NM_SUPPORT
 	{
 		.cmd = RACFG_CONTROL_RESET,
 		.set_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 0,
@@ -558,7 +557,6 @@ struct iw_priv_args sta_privtab_i[] = {
 		.set_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 0,
 		.name = "restart",
 	},
-#endif
 	{
 		.cmd = WSC_AP_BAND,
 		.set_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 0,
@@ -595,109 +593,5 @@ const struct iw_handler_def rlk_inic_iw_handler_def =
 #endif /* WIRELESS_EXT > 15 */
 };
 
-#ifdef MESH_SUPPORT
-const iw_handler rt_mesh_priv_handlers[] = {
-	(iw_handler) NULL, /* + 0x00 */
-	(iw_handler) NULL, /* + 0x01 */
-	(iw_handler) rt_ioctl_siwpoint_wrapper, /* + 0x02 */	
-	(iw_handler) NULL, /* + 0x03 */	
-	(iw_handler) NULL, /* + 0x04 */
-	(iw_handler) NULL, /* + 0x05 */
-	(iw_handler) NULL, /* + 0x06 */
-	(iw_handler) NULL, /* + 0x07 */
-	(iw_handler) NULL, /* + 0x08 */
-	(iw_handler) NULL, /* + 0x09 */
-	(iw_handler) NULL, /* + 0x0A */
-	(iw_handler) NULL, /* + 0x0B */
-	(iw_handler) NULL, /* + 0x0C */
-	(iw_handler) NULL, /* + 0x0D */
-	(iw_handler) NULL, /* + 0x0E */
-	(iw_handler) NULL, /* + 0x0F */
-	(iw_handler) NULL, /* + 0x10 */
-	(iw_handler) rt_ioctl_giwpoint_wrapper, /* + 0x11 */
-    (iw_handler) NULL, /* + 0x12 */
-	(iw_handler) NULL, /* + 0x13 */
-	(iw_handler) NULL, /* + 0x14 */
-	(iw_handler) NULL, /* + 0x15 */
-	(iw_handler) NULL, /* + 0x16 */
-	(iw_handler) NULL, /* + 0x17 */
-	(iw_handler) NULL, /* + 0x18 */
-};
-
-struct iw_priv_args sta_mesh_privtab_i[] = {
-	{
-		.cmd = RTPRIV_IOCTL_SET,
-		.set_args = IW_PRIV_TYPE_CHAR | 1024,
-		.name = "set",
-	},
-#if 0
-	{
-		.cmd = RTPRIV_IOCTL_SHOW,
-		.get_args = IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,
-		.name = "",
-	},
-#endif
-	{
-		.cmd = RTPRIV_IOCTL_SHOW,
-		.get_args = IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,
-		.name = "",
-	},
-	{
-		.cmd = SHOW_MESH_INFO,
-		.get_args = IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,
-		.name = "meshinfo",
-	},
-	{
-		.cmd = SHOW_NEIGHINFO_INFO,
-		.get_args = IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,
-		.name = "neighinfo",
-	},
-	{
-		.cmd = SHOW_MESH_ROUTE_INFO,
-		.get_args = IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,
-		.name = "meshrouteinfo",
-	},
-	{
-		.cmd = SHOW_MESH_ENTRY_INFO,
-		.get_args = IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,
-		.name = "meshentryinfo",
-	},
-	{
-		.cmd = SHOW_MULPATH_INFO,
-		.get_args = IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,
-		.name = "multipathinfo",
-	},
-	{
-		.cmd = SHOW_MCAST_AGEOUT_INFO,
-		.get_args = IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,
-		.name = "mcastageoutinfo",
-	},
-	{
-		.cmd = SHOW_MESH_PKTSIG_INFO,
-		.get_args = IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,
-		.name = "pktsiginfo",
-	},
-	{
-		.cmd = SHOW_MESH_PROXY_INFO,
-		.get_args = IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,
-		.name = "meshproxyinfo",
-	},
-};
-
-/* This handler only for Station Mesh */
-const struct iw_handler_def mesh_iw_handler_def =
-{
-#define	N(a)	(sizeof (a) / sizeof (a[0]))
-	.standard	= (iw_handler *) NULL,
-	.num_standard	= 0,
-	.private	= (iw_handler *) rt_mesh_priv_handlers,
-	.num_private		= N(rt_mesh_priv_handlers),
-	.private_args	= (struct iw_priv_args *) sta_mesh_privtab_i,
-	.num_private_args	= N(sta_mesh_privtab_i),
-#if IW_HANDLER_VERSION >= 7
-    .get_wireless_stats = NULL,
-#endif
-};
-#endif // MESH_SUPPORT //
 #endif /* __IW_HANDLER_H__*/
 

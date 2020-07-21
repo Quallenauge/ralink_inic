@@ -3,25 +3,8 @@
 
 /******************************************************************************************/
 /* USB Product related define 																   */
-#if (CONFIG_CHIP_NAME==3052)
-#define USB_PID 0x3052
-#endif
 
-#if (CONFIG_CHIP_NAME==3883)
 #define USB_PID 0x3883
-#endif
-
-#if (CONFIG_CHIP_NAME==3352)
-#define USB_PID 0x3352
-#endif
-
-#if (CONFIG_CHIP_NAME==5350)
-#define USB_PID 0x5350
-#endif
-
-#if (CONFIG_CHIP_NAME==3662)
-#define USB_PID 0x3662
-#endif
 
 /******************************************************************************************/
 /* network related define 																	   */

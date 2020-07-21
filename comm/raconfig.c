@@ -4,19 +4,12 @@
 #include <linux/signal.h>
 #include <linux/sched/signal.h>
 
-#ifdef WOWLAN_SUPPORT
-#include <linux/suspend.h>
-#include <linux/cpu.h>
-#include <linux/cpufreq.h>
-#endif // WOWLAN_SUPPORT // 
-   
 #define MAX_EAPOL_SIZE		1522
 
 //wpa_supplicant event flags
 #define RT_ASSOC_EVENT_FLAG                         0x0101
 #define RT_DISASSOC_EVENT_FLAG                      0x0102
 
-#ifdef NM_SUPPORT
 inline static void hardware_reset(iNIC_PRIVATE *pAd, int op)
 {
 #if (CONFIG_INF_TYPE==INIC_INF_TYPE_MII)
@@ -31,7 +24,6 @@ inline static void hardware_reset(iNIC_PRIVATE *pAd, int op)
 	    rlk_inic_stop_hw(pAd);
 #endif
 }
-#endif
 
 /*
  * Local Functions
@@ -45,9 +37,7 @@ s32 MC_CardIrq[MAX_NUM_OF_MULTIPLE_CARD];
 
 
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 CONCURRENT_OBJECT ConcurrentObj;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 
 static void send_racfg_cmd(iNIC_PRIVATE *pAd, char *, int);
@@ -60,11 +50,7 @@ static void FreeArgBox(ArgBox *box);
 static void _upload_firmware(iNIC_PRIVATE *pAd);
 static void _upload_profile(iNIC_PRIVATE *pAd);
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 static void RaCfgConcurrentOpenAction(void *);
-#else // CONFIG_CONCURRENT_INIC_SUPPORT //
-static void RaCfgOpenAction(void *);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 static void RaCfgInitCfgAction(void *);
 static void RaCfgUploadAction(void *);
 static void RaCfgRestartiNIC(void *);
@@ -80,14 +66,6 @@ void ReadCrcHeader(CRC_HEADER *hdr, unsigned char *buffer);
 
 static void rlk_inic_set_mac(iNIC_PRIVATE *pAd, char *mac_addr);
 static int get_mac_from_inic(iNIC_PRIVATE *pAd);
-#ifndef NM_SUPPORT
-static int netdev_event(struct notifier_block *this, unsigned long event, void *ptr);
-void close_all_interfaces(struct net_device *root_dev);
-#endif
-
-#ifdef WOWLAN_SUPPORT 
-static int pm_wow_event(struct notifier_block *this, unsigned long event, void *arg);
-#endif // WOWLAN_SUPPORT //
 
 extern const struct iw_handler_def rlk_inic_iw_handler_def;
 
@@ -96,14 +74,7 @@ extern void racfg_inband_hook_init(iNIC_PRIVATE *pAd);
 extern void racfg_inband_hook_cleanup(void);
 #endif
 
-#ifdef WOWLAN_SUPPORT
-static void RaCfgAddWowInbandTimer(iNIC_PRIVATE *pAd);
-static void RaCfgDelHeartWowInbandTimer(iNIC_PRIVATE *pAd);
-#endif 
-
 int iNIC_initialized = 0;
-
-#ifdef NM_SUPPORT
 
 #if WIRELESS_EXT > 14
 static void inline we_send_private_event(iNIC_PRIVATE *pAd, const char* str)
@@ -149,10 +120,6 @@ void RaCfgShutdown(iNIC_PRIVATE *pAd)
 	/* suspend the heartbeat timer */
 	RaCfgDelHeartBeatTimer(pAd);
 
-#ifdef WOWLAN_SUPPORT
-	RaCfgDelHeartWowInbandTimer(pAd);
-#endif // WOWLAN_SUPPORT //
-
 	/* close interface ra0 */
 	pAd->RaCfgObj.flg_is_open = 0;
 	dev_change_flags(pAd->dev, pAd->dev->flags & ~IFF_UP, NULL);
@@ -174,10 +141,6 @@ void RaCfgStartup(iNIC_PRIVATE *pAd)
 	pAd->RaCfgObj.fw_upload_counter = 0;
 	RaCfgAddHeartBeatTimer(pAd);
 
-#ifdef WOWLAN_SUPPORT
-	RaCfgAddWowInbandTimer(pAd);
-#endif 	
-	
 	get_mac_from_inic(pAd);
 }
 
@@ -188,18 +151,15 @@ void RaCfgRestart(iNIC_PRIVATE *pAd)
 	RaCfgShutdown(pAd);
 	RaCfgStartup(pAd);
 }
-#endif
 
 void RaCfgAddHeartBeatTimer(iNIC_PRIVATE *pAd)
 {
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	/* Only main interface has heart beat timer for system. */
 	if(ConcurrentObj.CardCount== 0)
 		pAd = gAdapter[0];
 	else
 		return;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	RTMP_SEM_LOCK(&pAd->RaCfgObj.timerLock);
 
@@ -233,13 +193,11 @@ void RaCfgAddHeartBeatTimer(iNIC_PRIVATE *pAd)
 void RaCfgDelHeartBeatTimer(iNIC_PRIVATE *pAd)
 {
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	/* Only main interface has heart beat timer for system. */
 	if(ConcurrentObj.CardCount== 0)
 		pAd = gAdapter[0];
 	else
 		return;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	RTMP_SEM_LOCK(&pAd->RaCfgObj.timerLock);
 	if (pAd->RaCfgObj.heartBeat.function)
@@ -275,25 +233,10 @@ void RaCfgInit(iNIC_PRIVATE *pAd, struct net_device *dev, char *conf_mac, char *
 	pAd->RaCfgObj.HeartBeatCount = 0;
 	//pAd->RaCfgObj.RebootCount = 0;
 
-#ifdef NM_SUPPORT
 	pAd->RaCfgObj.bWpaSupplicantUp = TRUE;
 	hardware_reset(pAd, 0);
 	udelay(10000);
 	hardware_reset(pAd, 1);
-#else
-	pAd->RaCfgObj.net_dev_notifier.notifier_call = netdev_event;
-	pAd->RaCfgObj.net_dev_notifier.next = NULL;
-	pAd->RaCfgObj.net_dev_notifier.priority = 0;
-	register_netdevice_notifier(&pAd->RaCfgObj.net_dev_notifier);
-#endif
-
-#ifdef WOWLAN_SUPPORT 
-	pAd->RaCfgObj.pm_wow_notifier.notifier_call = pm_wow_event;
-	pAd->RaCfgObj.pm_wow_notifier.next 			= NULL;
-	pAd->RaCfgObj.pm_wow_notifier.priority 		= 0;
-	pAd->RaCfgObj.pm_wow_state 					= WOW_CPU_UP;   
-	register_cpu_notifier(&pAd->RaCfgObj.pm_wow_notifier);
-#endif 
 
 
 	if (strcmp(conf_mode, "sta") == 0)
@@ -370,10 +313,6 @@ void RaCfgInit(iNIC_PRIVATE *pAd, struct net_device *dev, char *conf_mac, char *
 	RTMP_SEM_INIT(&pAd->RaCfgObj.waitLock);
 	RTMP_SEM_INIT(&pAd->RaCfgObj.timerLock);
 
-#ifdef WOWLAN_SUPPORT
-	RTMP_SEM_INIT(&pAd->RaCfgObj.WowInbandSignalTimerLock);
-#endif // #ifdef WOWLAN_SUPPORT // 
-
 	INIT_KFIFO(pAd->RaCfgObj.task_fifo);
 	INIT_KFIFO(pAd->RaCfgObj.backlog_fifo);
 	INIT_KFIFO(pAd->RaCfgObj.wait_fifo);
@@ -401,10 +340,8 @@ void RaCfgInit(iNIC_PRIVATE *pAd, struct net_device *dev, char *conf_mac, char *
 	}
 #if (CONFIG_INF_TYPE==INIC_INF_TYPE_MII)
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	/* The hook only need be changed one time. */
 	if(pAd->RaCfgObj.InterfaceNumber == 0)
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //		
 	racfg_inband_hook_init(pAd);
 #endif
 }
@@ -413,10 +350,6 @@ void RaCfgExit(iNIC_PRIVATE *pAd)
 {
 	RaCfgDelHeartBeatTimer(pAd);
 
-#ifdef WOWLAN_SUPPORT	
-	RaCfgDelHeartWowInbandTimer(pAd);
-#endif // WOWLAN_SUPPORT //	
-	
 	
 #if (CONFIG_INF_TYPE==INIC_INF_TYPE_MII)
 	racfg_inband_hook_cleanup();
@@ -438,23 +371,7 @@ void RaCfgExit(iNIC_PRIVATE *pAd)
 	{
 		rlk_inic_apcli_remove(pAd);
 	}
-#ifdef MESH_SUPPORT
-	if (pAd->RaCfgObj.bMesh)
-	{
-		rlk_inic_mesh_remove(pAd);
-	}
-#endif // MESH_SUPPORT //
 	RaCfgKillThread(pAd);
-
-#ifndef NM_SUPPORT
-	unregister_netdevice_notifier(&pAd->RaCfgObj.net_dev_notifier);
-	printk("unregister_netdevice_notifier ok\n");
-#endif
-
-#ifdef WOWLAN_SUPPORT 
-	unregister_cpu_notifier(&pAd->RaCfgObj.pm_wow_notifier);
-	pAd->RaCfgObj.pm_wow_state 	= WOW_CPU_UP;  
-#endif // WOWLAN_SUPPORT  //
 
 }
 
@@ -497,19 +414,12 @@ static void RaCfgHeartBeatTimeOut(struct timer_list *t)
 #endif
 	HndlTask new_task;
 
-#ifndef NM_SUPPORT
-	if (!NETIF_IS_UP(pAd->RaCfgObj.MainDev))
-		return;
-#endif
-
 	if (pAd->RaCfgObj.config_thread_task->state != TASK_RUNNING)
 		return;
 
 	if (pAd->RaCfgObj.fw_upload_counter >= max_fw_upload)
 	{
-#ifdef NM_SUPPORT
 		hardware_reset(pAd, 0);
-#endif
 		return;
 	}
 
@@ -594,25 +504,16 @@ static void RaCfgFifoRestart(iNIC_PRIVATE *pAd)
 	kfifo_in(&pAd->RaCfgObj.backlog_fifo, &new_task, 1);
 	wake_up_interruptible(&pAd->RaCfgObj.backlogQH);
 
-#ifdef MESH_SUPPORT
-	new_task.func = rlk_inic_mesh_restart
-	kfifo_in(&pAd->RaCfgObj.backlog_fifo, &new_task, 1);
-	wake_up_interruptible(&pAd->RaCfgObj.backlogQH);
-#endif // MESH_SUPPORT // 
-
 }
 
 static void RaCfgRestartiNIC(void *arg)
 {
 	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *)arg;
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	int i = 0;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	pAd->RaCfgObj.bRestartiNIC = TRUE;
 	printk("=========== RaCfgRestartiNIC begin =========\n");
 	RaCfgCloseFile(pAd, &pAd->RaCfgObj.firmware);
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	for(i = 0; i < CONCURRENT_CARD_NUM; i++)
 	{
 		RaCfgCloseFile(pAd, &ConcurrentObj.Profile[i]);
@@ -621,11 +522,6 @@ static void RaCfgRestartiNIC(void *arg)
 			RaCfgCloseFile(gAdapter[i], &ConcurrentObj.ExtEeprom[i]);
 		}		
 	}
-#else
-	RaCfgCloseFile(pAd, &pAd->RaCfgObj.profile);
-	if (pAd->RaCfgObj.bExtEEPROM)
-		RaCfgCloseFile(pAd, &pAd->RaCfgObj.ext_eeprom);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	
 #if (CONFIG_INF_TYPE==INIC_INF_TYPE_PCI)
@@ -661,7 +557,6 @@ void RaCfgSetUp(iNIC_PRIVATE *pAd, struct net_device *dev)
 		}
 	}
 	// TODO : bug in read second profile gAdapter[1] non initialized
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	/* After the first time opening, read all profile to setting attribute*/
 	printk("ConcurrentObj.CardCount=%d\n", ConcurrentObj.CardCount);
 	if(ConcurrentObj.CardCount == 0)
@@ -672,9 +567,6 @@ void RaCfgSetUp(iNIC_PRIVATE *pAd, struct net_device *dev)
 			rlk_inic_read_profile(gAdapter[i]);
 		}
 	}
-#else
-	rlk_inic_read_profile(pAd);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 //	rlk_inic_read_profile(pAd);
 	if (pAd->RaCfgObj.opmode)
 	{
@@ -684,22 +576,6 @@ void RaCfgSetUp(iNIC_PRIVATE *pAd, struct net_device *dev)
 			pAd->RaCfgObj.BssidNum = MAX_MBSSID_NUM - 1;
 			printk("%d BSS, one ApClient\n", pAd->RaCfgObj.BssidNum);
 		}
-
-#ifdef MESH_SUPPORT
-		if (pAd->RaCfgObj.bApcli && pAd->RaCfgObj.bMesh && ((pAd->RaCfgObj.BssidNum+2) > MAX_MBSSID_NUM))
-		{
-			// reserve a mbss for mesh
-			pAd->RaCfgObj.BssidNum = MAX_MBSSID_NUM - 2;
-			printk("%d BSS, one MESH , one ApClient\n", pAd->RaCfgObj.BssidNum);
-		}
-		else if (!pAd->RaCfgObj.bApcli && pAd->RaCfgObj.bMesh && ((pAd->RaCfgObj.BssidNum+1) > MAX_MBSSID_NUM))
-		{
-			// reserve a mbss for mesh
-			pAd->RaCfgObj.BssidNum = MAX_MBSSID_NUM - 1;
-			printk("%d BSS, one MESH\n", pAd->RaCfgObj.BssidNum);
-
-		}
-#endif // MESH_SUPPORT //
 
 		printk("rlk_inic_mbss_init (pAd->RaCfgObj.BssidNum=%d)\n",pAd->RaCfgObj.BssidNum);
 		if (pAd->RaCfgObj.BssidNum > 1)
@@ -720,21 +596,6 @@ void RaCfgSetUp(iNIC_PRIVATE *pAd, struct net_device *dev)
 	{
 	}
 
-#ifdef MESH_SUPPORT
-	if (pAd->RaCfgObj.bMesh)
-	{
-		rlk_inic_mesh_init(dev, pAd);
-	}
-#endif // MESH_SUPPORT //
-
-
-#ifndef NM_SUPPORT	
-	//
-	// profile must be readed before enable flg_is_open
-	// ex: ExtEEPROM=1
-	//
-	pAd->RaCfgObj.flg_is_open = 1;
-#endif	
 
 	// Executing in task thread implies => boot fail 
 	// => don't wait for MAC (iNIC not booted yet, no MAC returned)
@@ -745,10 +606,6 @@ void RaCfgSetUp(iNIC_PRIVATE *pAd, struct net_device *dev)
 		get_mac_from_inic(pAd);
 	}
 	RaCfgAddHeartBeatTimer(pAd);
-
-#ifdef WOWLAN_SUPPORT
-	RaCfgAddWowInbandTimer(pAd);
-#endif // WOWLAN_SUPPORT //
 
 }
 
@@ -780,27 +637,19 @@ static int get_mac_from_inic(iNIC_PRIVATE *pAd)
 		pAd->RaCfgObj.fw_upload_counter = 0;
 		return ret;
 	}
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	if(ConcurrentObj.CardCount== 0){
-#endif // #ifdef CONFIG_CONCURRENT_INIC_SUPPORT //		
 	printk("Wait for boot done...\n");
 	pAd->RaCfgObj.bGetMac = FALSE;
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	}
-#endif
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	if(ConcurrentObj.CardCount== 0){
-#endif // #ifdef CONFIG_CONCURRENT_INIC_SUPPORT //
 	printk("Call RaCfgWaitSyncRsp\n");
 	ret = RaCfgWaitSyncRsp(pAd, RACFG_CMD_GET_MAC, 0, NULL, NULL, GET_MAC_TIMEOUT); // 1 hours = infinitely
 	if (ret)
 	{
 		printk("ERROR! can't get target's MAC address, boot fail.\n");
 		pAd->RaCfgObj.fw_upload_counter++;
-#ifdef NM_SUPPORT
 		we_fw_upload_failed(pAd);
-#endif
 	}
 	else
 	{
@@ -808,16 +657,12 @@ static int get_mac_from_inic(iNIC_PRIVATE *pAd)
 		pAd->RaCfgObj.bGetMac = TRUE;
 		pAd->RaCfgObj.fw_upload_counter = 0;
 		
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 		/* All interface is radio off after iNIC boot. 
 		 * Set radio on when getting MAC. */
 //		SetRadioOn(pAd, 1);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 		
-#ifdef NM_SUPPORT
 		we_fw_uploaded(pAd);
-#endif
 		iNIC_initialized = 1;
 	}
 	}
@@ -828,23 +673,12 @@ static int get_mac_from_inic(iNIC_PRIVATE *pAd)
 void RaCfgStateReset(iNIC_PRIVATE *pAd)
 {
 
-#ifndef NM_SUPPORT
-	pAd->RaCfgObj.flg_is_open = 0;
-	RaCfgDelHeartBeatTimer(pAd);
-
-#ifdef WOWLAN_SUPPORT	
-	RaCfgDelHeartWowInbandTimer(pAd);
-#endif // WOWLAN_SUPPORT //		
-	
-#endif
 	/* Be sure to reset bGetMac, otherwise under syncmiimac<>0 mode,
 	   if down+if up will cause unicast uploading profile/firmware,
 	   which won't be received by boot ROM */
 	pAd->RaCfgObj.bGetMac = FALSE;
 #if (CONFIG_INF_TYPE == INIC_INF_TYPE_MII)
-#ifdef PHASE_LOAD_CODE
 	pAd->RaCfgObj.bLoadPhase = FALSE;	
-#endif
 #endif
 	pAd->RaCfgObj.wait_completed = 0;
 	kfifo_reset(&pAd->RaCfgObj.task_fifo);
@@ -945,13 +779,11 @@ static int RaCfgTaskThread(void *arg)
 				break;
 			}
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 			if((pAd->RaCfgObj.InterfaceNumber >= 0)&&(pAd->RaCfgObj.InterfaceNumber <= CONCURRENT_CARD_NUM))
 			{
 				int idx = pAd->RaCfgObj.InterfaceNumber;
 				RLK_STRCPY(pAd->RaCfgObj.profile.name, ConcurrentObj.Profile[idx].read_name);
 			}
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 #ifdef DBG
 			{		
@@ -993,14 +825,11 @@ static int RaCfgTaskThread(void *arg)
 				break;
 			}
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 			if((pAd->RaCfgObj.InterfaceNumber >= 0)&&(pAd->RaCfgObj.InterfaceNumber <= CONCURRENT_CARD_NUM))
 			{
 				int idx = pAd->RaCfgObj.InterfaceNumber;
 				RLK_STRCPY(pAd->RaCfgObj.ext_eeprom.name, ConcurrentObj.ExtEeprom[idx].read_name);
 			}
-
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 
 #ifdef DBG
@@ -1043,10 +872,6 @@ static int RaCfgTaskThread(void *arg)
 				dev = pAd->RaCfgObj.APCLI[dev_id].MSSIDDev;
 			else if (dev_type & DEV_TYPE_WDS_FLAG)
 				dev = pAd->RaCfgObj.WDS[dev_id].MSSIDDev;
-#ifdef MESH_SUPPORT
-			else if (dev_type & DEV_TYPE_MESH_FLAG)
-				dev = pAd->RaCfgObj.MESH[dev_id].MSSIDDev;
-#endif // MESH_SUPPORT //
 			else
 				dev	= pAd->RaCfgObj.MBSSID[dev_id].MSSIDDev;
 
@@ -1077,10 +902,6 @@ static int RaCfgTaskThread(void *arg)
 				dev = pAd->RaCfgObj.APCLI[dev_id].MSSIDDev;
 			else if (dev_type & DEV_TYPE_WDS_FLAG)
 				dev = pAd->RaCfgObj.WDS[dev_id].MSSIDDev;
-#ifdef MESH_SUPPORT
-			else if (dev_type & DEV_TYPE_MESH_FLAG)
-				dev = pAd->RaCfgObj.MESH[dev_id].MSSIDDev;
-#endif // MESH_SUPPORT //
 			else
 				dev	= pAd->RaCfgObj.MBSSID[dev_id].MSSIDDev;
 
@@ -1195,7 +1016,6 @@ static void FreeArgBox(ArgBox *box)
 	kfree(box);
 }
 
-#ifdef RETRY_PKT_SEND
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void upload_timeout(uintptr_t arg)
 {
@@ -1226,7 +1046,6 @@ static void upload_timeout(struct timer_list *t)
 		}
 	}
 }
-#endif
 
 static void _upload_firmware(iNIC_PRIVATE *pAd)
 {
@@ -1275,7 +1094,6 @@ static void _upload_firmware(iNIC_PRIVATE *pAd)
 
 		memcpy(pAd->RaCfgObj.cmp_buf, pAd->RaCfgObj.upload_buf, len);
 
-#ifdef RETRY_PKT_SEND
 	memcpy(pAd->RaCfgObj.RPKTInfo.buffer, pAd->RaCfgObj.upload_buf, len);
 	pAd->RaCfgObj.RPKTInfo.Seq = firmware->seq;
 	pAd->RaCfgObj.RPKTInfo.BootType = RACFG_CMD_BOOT_UPLOAD;
@@ -1293,7 +1111,6 @@ static void _upload_firmware(iNIC_PRIVATE *pAd)
 #endif
 	}
 	mod_timer(&pAd->RaCfgObj.uploadTimer, jiffies + RetryTimeOut*HZ/1000);
-#endif
 		SendRaCfgCommand(pAd, 
 						 RACFG_CMD_TYPE_BOOTSTRAP & /*RACFG_CMD_TYPE_RSP_FLAG*/ RACFG_CMD_TYPE_PASSIVE_MASK,
 						 RACFG_CMD_BOOT_UPLOAD, len, firmware->seq, 0, 0, 0, pAd->RaCfgObj.upload_buf);
@@ -1304,7 +1121,6 @@ static void _upload_firmware(iNIC_PRIVATE *pAd)
 	{
 		u32 crc = 0;
 
-#ifdef RETRY_PKT_SEND
 	// delete timer
 	if (pAd->RaCfgObj.uploadTimer.function)
 	{
@@ -1314,7 +1130,6 @@ static void _upload_firmware(iNIC_PRIVATE *pAd)
 		pAd->RaCfgObj.uploadTimer.data = 0;
 #endif
 	}
-#endif
 
 //#if (CONFIG_INF_TYPE == INIC_INF_TYPE_MII)
 //#ifdef PHASE_LOAD_CODE
@@ -1408,7 +1223,6 @@ int _append_extra_profile(iNIC_PRIVATE *pAd, int len)
 	}
 	else
 #endif // MULTIPLE_CARD_SUPPORT //
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	if (strlen(ConcurrentObj.Mac[0]))
 	{
 		snprintf(pos, sizeof(tmpstr) - addlen, "__SkipIfNotINIC__MAC=%s\n", ConcurrentObj.Mac[0]);
@@ -1417,7 +1231,6 @@ int _append_extra_profile(iNIC_PRIVATE *pAd, int len)
 
 	}
 	else
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 		if (strlen(mac))
 	{
 		snprintf(pos, sizeof(tmpstr) - addlen, "__SkipIfNotINIC__MAC=%s\n", mac);
@@ -1474,27 +1287,19 @@ int _append_extra_profile(iNIC_PRIVATE *pAd, int len)
 		pos    += strlen(pos);
 	}
 
-#if  ((CONFIG_CHIP_NAME==3883) || (CONFIG_CHIP_NAME==3662))
 	{
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 		snprintf(pos, sizeof(tmpstr) - addlen, "__SkipIfNotINIC__CONCURRENT_ENABLE=1\n");
-#else
-		snprintf(pos, sizeof(tmpstr) - addlen, "__SkipIfNotINIC__CONCURRENT_ENABLE=0\n");
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 		addlen += strlen(pos);
 		pos    += strlen(pos);
 	}
-#endif 
 
-#ifdef NEW_MBSS_SUPPORT	
 	{
 		
 		snprintf(pos, sizeof(tmpstr) - addlen, "__SkipIfNotINIC__NEWMBSS=1\n");
 		addlen += strlen(pos);
 		pos    += strlen(pos);
 	}
-#endif 
 
 
 #ifdef __BIG_ENDIAN
@@ -1517,9 +1322,7 @@ int _append_extra_profile(iNIC_PRIVATE *pAd, int len)
 		{
 			pAd->RaCfgObj.bGetExtEEPROMSize = 1;    
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT			
 			pAd->RaCfgObj.ext_eeprom = ConcurrentObj.ExtEeprom[0];
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 			pE2p = &pAd->RaCfgObj.ext_eeprom;
 			if (!pE2p)
@@ -1546,12 +1349,6 @@ int _append_extra_profile(iNIC_PRIVATE *pAd, int len)
 		pos    += strlen(pos);
 	}
 
-#ifndef CONFIG_CONCURRENT_INIC_SUPPORT
-	// Add NULL string terminator
-	*pos++ = 0x00;
-	addlen++;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
-
 	if (pAd->RaCfgObj.extraProfileOffset < addlen)
 	{
 		pos = &tmpstr[pAd->RaCfgObj.extraProfileOffset];
@@ -1573,8 +1370,6 @@ int _append_extra_profile(iNIC_PRIVATE *pAd, int len)
 	return ret;
 }
 
-
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 
 /* Append NULL string terminator */
 int _append_extra_profile2(iNIC_PRIVATE *pAd, int len)
@@ -1683,7 +1478,6 @@ int _append_extra_profile2(iNIC_PRIVATE *pAd, int len)
 	
 	return ret;
 }
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 static void _upload_profile(iNIC_PRIVATE *pAd)
 {
@@ -1691,7 +1485,6 @@ static void _upload_profile(iNIC_PRIVATE *pAd)
 	loff_t rest = 0;
 	FWHandle *pProfile = &pAd->RaCfgObj.profile;
 	FWHandle *pE2p = &pAd->RaCfgObj.ext_eeprom;
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	FWHandle *pProfile2 = NULL;
 	static unsigned char bStartSecondProfile = FALSE;
 	int i;
@@ -1699,7 +1492,6 @@ static void _upload_profile(iNIC_PRIVATE *pAd)
 	pAd = gAdapter[0];
 	pProfile = &ConcurrentObj.Profile[0];
 	pProfile2 = &ConcurrentObj.Profile[1];
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 	
 
 	if (!pProfile->fw_data){
@@ -1717,28 +1509,6 @@ static void _upload_profile(iNIC_PRIVATE *pAd)
 	extra = _append_extra_profile(pAd, len);
 	len += extra;
 	room_left -= extra;
-
-#ifndef CONFIG_CONCURRENT_INIC_SUPPORT
-	if (pAd->RaCfgObj.bExtEEPROM && len < MAX_FEEDBACK_LEN)
-	{
-		if (!pE2p.fw_data)
-		{
-			printk("upload_profile Error : Can't read External EEPROM File\n");
-			return;
-		}
-
-		if(pE2p->r_off < pE2p->size){
-			rest = pE2p->size - pE2p->r_off;
-			e2pLen = rest <= room_left ? rest : room_left;
-			memcpy(pAd->RaCfgObj.test_pool+len, &pProfile->fw_data[pE2p->r_off], e2pLen);
-			pE2p->r_off += rest;
-		}
-		len += e2pLen;
-		room_left -= e2pLen;
-	}
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT // 	
-
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 
 	/* upload the profile of second concurrent card */
 	if(len < MAX_FEEDBACK_LEN)
@@ -1787,20 +1557,14 @@ static void _upload_profile(iNIC_PRIVATE *pAd)
 			}
 		}
 	}	
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	printk("Upload Profile %d bytes from file, %d from extra...\n", len, extra);
 
 	if (len > 0)
 	{
-#ifdef RETRY_PKT_SEND
 		memcpy(pAd->RaCfgObj.RPKTInfo.buffer, pAd->RaCfgObj.test_pool, len);
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 		pAd->RaCfgObj.RPKTInfo.Seq = ConcurrentObj.Profile[0].seq;
-#else
-		pAd->RaCfgObj.RPKTInfo.Seq = pAd->RaCfgObj.profile.seq;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 		pAd->RaCfgObj.RPKTInfo.BootType = RACFG_CMD_BOOT_INITCFG;
 		pAd->RaCfgObj.RPKTInfo.length = len;
@@ -1820,25 +1584,15 @@ static void _upload_profile(iNIC_PRIVATE *pAd)
 			mod_timer(&pAd->RaCfgObj.uploadTimer, jiffies + HZ);
 		else
 			mod_timer(&pAd->RaCfgObj.uploadTimer, jiffies + RetryTimeOut*HZ/1000);
-#endif
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 		SendRaCfgCommand(pAd, 
 						 RACFG_CMD_TYPE_BOOTSTRAP & RACFG_CMD_TYPE_PASSIVE_MASK,
 						 RACFG_CMD_BOOT_INITCFG, len, ConcurrentObj.Profile[0].seq, 
 						 0, 0, 0, pAd->RaCfgObj.test_pool);
 		ConcurrentObj.Profile[0].seq++;  
-#else 
-		SendRaCfgCommand(pAd, 
-						 RACFG_CMD_TYPE_BOOTSTRAP & RACFG_CMD_TYPE_PASSIVE_MASK,
-						 RACFG_CMD_BOOT_INITCFG, len, pAd->RaCfgObj.profile.seq, 
-						 0, 0, 0, pAd->RaCfgObj.test_pool);
-		pAd->RaCfgObj.profile.seq++;  
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT
 	}
 	else
 	{
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 		DBGPRINT("Send Init Cfg Data Done(%d packets)\n", ConcurrentObj.Profile[0].seq);
 		for(i = 0; i < CONCURRENT_CARD_NUM; i++)
 		{
@@ -1849,18 +1603,10 @@ static void _upload_profile(iNIC_PRIVATE *pAd)
 				RaCfgCloseFile(gAdapter[i], &ConcurrentObj.ExtEeprom[i]);
 			}		
 		}
-#else
-		DBGPRINT("Send Init Cfg Data Done(%d packets)\n", pAd->RaCfgObj.profile.seq);
-		RaCfgCloseFile(pAd, &pAd->RaCfgObj.profile);
-		if (pAd->RaCfgObj.bExtEEPROM)
-			RaCfgCloseFile(pAd, &pAd->RaCfgObj.ext_eeprom);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 		_upload_firmware(pAd);
 	} 
 
 }
-
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 
 static void RaCfgConcurrentOpenAction(void *arg)
 {
@@ -1942,115 +1688,6 @@ static void RaCfgConcurrentOpenAction(void *arg)
 	_upload_profile(pAd);
 }
 
-#else // CONFIG_CONCURRENT_INIC_SUPPORT //
-
-static void RaCfgOpenAction(uintptr_t arg)
-{
-
-	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *)arg;
-
-#if (CONFIG_INF_TYPE == INIC_INF_TYPE_MII)
-#ifdef PHASE_LOAD_CODE
-	if (!pAd->RaCfgObj.bLoadPhase)
-	{
-#ifdef RETRY_PKT_SEND
-		pAd->RaCfgObj.RPKTInfo.Seq = pAd->RaCfgObj.profile.seq;
-		pAd->RaCfgObj.RPKTInfo.BootType = RACFG_CMD_BOOT_INITCFG;
-		pAd->RaCfgObj.RPKTInfo.length = 0;
-		pAd->RaCfgObj.RPKTInfo.retry = FwRetryCnt;
-		// turn-on timer
-		if (!pAd->RaCfgObj.uploadTimer.function)
-		{
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
-			init_timer(&pAd->RaCfgObj.uploadTimer);
-			pAd->RaCfgObj.uploadTimer.function = upload_timeout;
-			pAd->RaCfgObj.uploadTimer.data = (uintptr_t)pAd;
-#else
-			timer_setup(&pAd->RaCfgObj.uploadTimer, (void *)&upload_timeout, 0);
-#endif
-		}
-		if(pAd->RaCfgObj.RPKTInfo.Seq == 0)
-			mod_timer(&pAd->RaCfgObj.uploadTimer, jiffies + HZ);
-		else
-			mod_timer(&pAd->RaCfgObj.uploadTimer, jiffies + RetryTimeOut*HZ/1000);
-#endif
-		RLK_STRCPY(pAd->RaCfgObj.firmware.name, INIC_PHASE_FIRMWARE_PATH); 
-		RaCfgCloseFile(pAd, &pAd->RaCfgObj.firmware);
-		RaCfgOpenFile(pAd, &pAd->RaCfgObj.firmware, O_RDONLY);
-		SendRaCfgCommand(pAd, 
-						 RACFG_CMD_TYPE_BOOTSTRAP & RACFG_CMD_TYPE_PASSIVE_MASK,
-						 RACFG_CMD_BOOT_INITCFG, 0, pAd->RaCfgObj.profile.seq, 
-						 0, 0, 0, pAd->RaCfgObj.test_pool);
-		pAd->RaCfgObj.profile.seq++;		
-		return;
-	}
-#endif
-#endif
-	if (!pAd->RaCfgObj.opmode == 0)
-	{
-		RLK_STRCPY(pAd->RaCfgObj.firmware.name, INIC_AP_FIRMWARE_PATH);
-			RLK_STRCPY(pAd->RaCfgObj.profile.name,  INIC_AP_PROFILE_PATH);
-
-	}
-	else
-	{
-		RLK_STRCPY(pAd->RaCfgObj.firmware.name, INIC_STA_FIRMWARE_PATH);
-			RLK_STRCPY(pAd->RaCfgObj.profile.name,  INIC_STA_PROFILE_PATH);
-	}
-
-	if (pAd->RaCfgObj.bExtEEPROM)
-		RLK_STRCPY(pAd->RaCfgObj.ext_eeprom.name,  EEPROM_BIN_FILE_PATH);
-
-
-#ifdef MULTIPLE_CARD_SUPPORT
-	if (pAd->RaCfgObj.InterfaceNumber >= 0)
-		RLK_STRCPY(pAd->RaCfgObj.profile.name,  pAd->RaCfgObj.profile.read_name);			
-#endif // MULTIPLE_CARD_SUPPORT //		
-
-
-#ifdef DBG
-	{
-		char buf[MAX_FILE_NAME_SIZE]; 
-
-		snprintf(buf, MAX_FILE_NAME_SIZE, "%s%s", root, pAd->RaCfgObj.firmware.name);
-
-		strncpy(pAd->RaCfgObj.firmware.name, buf, MAX_FILE_NAME_SIZE - 1);
-		pAd->RaCfgObj.firmware.name[MAX_FILE_NAME_SIZE -1] = '0';
-
-		snprintf(buf, MAX_FILE_NAME_SIZE, "%s%s", root, pAd->RaCfgObj.profile.name);
-		strncpy(pAd->RaCfgObj.profile.name, buf, MAX_FILE_NAME_SIZE - 1);
-		pAd->RaCfgObj.profile.name[MAX_FILE_NAME_SIZE - 1] = '0';
-			
-		if (pAd->RaCfgObj.bExtEEPROM)
-		{
-			snprintf(buf, MAX_FILE_NAME_SIZE, "%s%s", root, pAd->RaCfgObj.ext_eeprom.name);
-			strncpy(pAd->RaCfgObj.ext_eeprom.name, buf, MAX_FILE_NAME_SIZE - 1);
-			pAd->RaCfgObj.ext_eeprom.name[MAX_FILE_NAME_SIZE -1] = '0';
-		}
-	}
-
-#endif
-	// Reset files to avoid duplicated profile upload 
-	// when multiple BOOT_NOTIFY coming too fast.
-	RaCfgCloseFile(pAd, &pAd->RaCfgObj.firmware);
-	RaCfgCloseFile(pAd, &pAd->RaCfgObj.profile);
-	if (pAd->RaCfgObj.bExtEEPROM)
-		RaCfgCloseFile(pAd, &pAd->RaCfgObj.ext_eeprom);
-
-	RaCfgOpenFile(pAd, &pAd->RaCfgObj.firmware, O_RDONLY);
-	RaCfgOpenFile(pAd, &pAd->RaCfgObj.profile,  O_RDONLY);
-	if (pAd->RaCfgObj.bExtEEPROM)
-	{
-		RaCfgOpenFile(pAd, &pAd->RaCfgObj.ext_eeprom,  O_RDONLY);
-		pAd->RaCfgObj.bGetExtEEPROMSize = 0;        
-	}
-
-	pAd->RaCfgObj.extraProfileOffset = 0;
-	_upload_profile(pAd);
-}
-
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
-
 static void RaCfgUploadAction(void *arg)
 {
 	ArgBox *box         = (ArgBox *)arg;
@@ -2108,11 +1745,7 @@ static void RaCfgInitCfgAction(void * arg)
 
 	FreeArgBox(box);
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	if (sequence != ConcurrentObj.Profile[0].seq-1)
-#else 
-	if (sequence != pAd->RaCfgObj.profile.seq-1)
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT
 	{
 #if 1
 		printk("WARNING! iNIC profile ack sequence %d<->%d mismatched," 
@@ -2146,10 +1779,8 @@ static void RaCfgInitCfgAction(void * arg)
 	}
 #endif
 #if (CONFIG_INF_TYPE == INIC_INF_TYPE_MII)
-	#ifdef PHASE_LOAD_CODE
 		if (!pAd->RaCfgObj.bLoadPhase)
 		{
-		#ifdef RETRY_PKT_SEND
 			// delete timer
 			if (pAd->RaCfgObj.uploadTimer.function)
 			{
@@ -2159,11 +1790,9 @@ static void RaCfgInitCfgAction(void * arg)
 				pAd->RaCfgObj.uploadTimer.data = 0;
 #endif
 			}
-		#endif
 			_upload_profile(pAd);
 		}
 		else
-	#endif
 #endif
 			_upload_firmware(pAd);
 }
@@ -2208,9 +1837,7 @@ int RaCfgWaitSyncRsp(iNIC_PRIVATE *pAd, u16 cmd, u16 cmd_seq, struct iwreq *wrq,
 	u8 *payload, *user=NULL;
 	int status = NDIS_STATUS_SUCCESS;
 	unsigned short accumulate = 0;
-#ifdef FIX_POTENTIAL_BUG
 	char *accumulate_buffer = NULL;
-#endif
 	int rc;
 
 	if (wrq)
@@ -2296,9 +1923,7 @@ int RaCfgWaitSyncRsp(iNIC_PRIVATE *pAd, u16 cmd, u16 cmd_seq, struct iwreq *wrq,
 
 		seq          = le16_to_cpu(p_racfgh->sequence);
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 		dev_type &= ~DEV_TYPE_CONCURRENT_FLAG;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 
 		payload = (char *)p_racfgh->data;
@@ -2348,7 +1973,6 @@ int RaCfgWaitSyncRsp(iNIC_PRIVATE *pAd, u16 cmd, u16 cmd_seq, struct iwreq *wrq,
 					mac1_tmp[17] = '\0';
 					strncpy(mac2_tmp, payload + 17, 17);
 					mac2_tmp[17] = '\0';					
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT 			
 					rlk_inic_set_mac(gAdapter[0], mac1_tmp); 
 					// Set the concurrent card mac address
 					if(gAdapter[1])
@@ -2357,9 +1981,6 @@ int RaCfgWaitSyncRsp(iNIC_PRIVATE *pAd, u16 cmd, u16 cmd_seq, struct iwreq *wrq,
 					{
 						printk("Warning: gAdapter[1] is NULL. Can't sync the concurrent card mac address \n");
 					}
-#else // CONFIG_CONCURRENT_INIC_SUPPORT //
-					rlk_inic_set_mac(pAd, mac1_tmp); 					
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //			
 
 #if (CONFIG_INF_TYPE==INIC_INF_TYPE_MII)
 					rlk_inic_check_mac(pAd);
@@ -2390,13 +2011,11 @@ int RaCfgWaitSyncRsp(iNIC_PRIVATE *pAd, u16 cmd, u16 cmd_seq, struct iwreq *wrq,
 				status = -EAGAIN;
 				break;                  
 			}
-#ifdef FIX_POTENTIAL_BUG
 			if (accumulate_buffer)
 			{
 				kfree(accumulate_buffer);
 				accumulate_buffer = NULL;
 			}
-#endif
 			dev_kfree_skb(skb);
 			return status;
 		case RACFG_CMD_TYPE_COPY_TO_USER | RACFG_CMD_TYPE_RSP_FLAG:
@@ -2483,7 +2102,6 @@ int RaCfgWaitSyncRsp(iNIC_PRIVATE *pAd, u16 cmd, u16 cmd_seq, struct iwreq *wrq,
 				}
 				else
 				{
-#ifdef FIX_POTENTIAL_BUG
 					/* payload= wrq + extra1 + extra2 + .... */
 					if (!accumulate_buffer)
 					{
@@ -2499,11 +2117,6 @@ int RaCfgWaitSyncRsp(iNIC_PRIVATE *pAd, u16 cmd, u16 cmd_seq, struct iwreq *wrq,
 					}
 					memmove(accumulate_buffer+accumulate, payload, len);
 
-#else
-
-					memmove(kernel_data + accumulate, payload, len);
-#endif
-
 					if (len >= MAX_FEEDBACK_LEN)
 					{
 						accumulate += len;
@@ -2517,14 +2130,10 @@ int RaCfgWaitSyncRsp(iNIC_PRIVATE *pAd, u16 cmd, u16 cmd_seq, struct iwreq *wrq,
 							break;
 						}
 
-#ifdef FIX_POTENTIAL_BUG
 						IWREQdecode(wrq, accumulate_buffer, dev_type, kernel_data);
 						// the last packet => free accumulate_buffer
 						kfree(accumulate_buffer);
 						accumulate_buffer = NULL;
-#else
-						IWREQdecode(wrq, kernel_data, dev_type, kernel_data);
-#endif
 						//hex_dump("decode afer", kernel_data, 32);
 					}
 				}
@@ -2576,10 +2185,6 @@ void FeedbackRspHandler(iNIC_PRIVATE *pAd, struct sk_buff *skb)
 	}
 }
 
-#ifdef PCI_NONE_RESET
-static int bDropMultiBootNotify = 0;
-#endif
-
 /*
 * For code size, on-chip BootCode Don't check any error
 * RaCfgAgent just process and ack the command from RaCfgMaster
@@ -2615,23 +2220,7 @@ static void RaCfgCommandHandler(iNIC_PRIVATE *pAd, struct sk_buff *skb)
 	{
 	case RACFG_CMD_BOOT_NOTIFY:
 		new_task.arg = pAd;
-#ifdef PCI_NONE_RESET
-		if (!bDropMultiBootNotify)
-		{
-			DBGPRINT("RACFG_CMD_BOOT_NOTIFY\n");
-
-	#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
-			new_task.func = RaCfgConcurrentOpenAction;
-	#else
-			new_task.func = RaCfgOpenAction;
-	#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
-			kfifo_in(&pAd->RaCfgObj.task_fifo, &new_task, 1);
-			wake_up_interruptible(&pAd->RaCfgObj.taskQH);
-			bDropMultiBootNotify = 1;
-		}
-#else
 	#if (CONFIG_INF_TYPE == INIC_INF_TYPE_MII)
-		#ifdef PHASE_LOAD_CODE
 		    if (pAd->RaCfgObj.bLoadPhase)
 		    {
 			    pAd->RaCfgObj.dropNotifyCount++;
@@ -2642,17 +2231,11 @@ static void RaCfgCommandHandler(iNIC_PRIVATE *pAd, struct sk_buff *skb)
 			    }	
 		    }
             pAd->RaCfgObj.dropNotifyCount = 0;
-		#endif
 	#endif
 		DBGPRINT("RACFG_CMD_BOOT_NOTIFY\n");
-	#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 			new_task.func = RaCfgConcurrentOpenAction;
-	#else
-			new_task.func = RaCfgOpenAction;
-	#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 				kfifo_in(&pAd->RaCfgObj.task_fifo, &new_task, 1);
 				wake_up_interruptible(&pAd->RaCfgObj.taskQH);
-#endif
 				dev_kfree_skb(skb);
 			break;
 	case RACFG_CMD_BOOT_INITCFG:
@@ -2692,12 +2275,10 @@ static void RaCfgCommandHandler(iNIC_PRIVATE *pAd, struct sk_buff *skb)
 	case RACFG_CMD_BOOT_STARTUP:
 		DBGPRINT("RACFG_CMD_BOOT_STARTUP\n");
 #if (CONFIG_INF_TYPE == INIC_INF_TYPE_MII)
-	#ifdef PHASE_LOAD_CODE
 			if (pAd->RaCfgObj.bLoadPhase)
 				pAd->RaCfgObj.bLoadPhase = FALSE;
 			else
 				pAd->RaCfgObj.bLoadPhase = TRUE;
-	#endif
 #endif
 		dev_kfree_skb(skb);
 		break;
@@ -2776,10 +2357,8 @@ void SendRaCfgCommand(iNIC_PRIVATE *pAd, u16 cmd_type, u16 cmd_id, u16 len, u16 
 #endif
 
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	if(pAd->RaCfgObj.InterfaceNumber == 1)
 		p_racfgh->dev_type = cpu_to_le16(dev_type | DEV_TYPE_CONCURRENT_FLAG);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	if (len)
 		memcpy(&p_racfgh->data[0], data, len);
@@ -2813,7 +2392,6 @@ boolean racfg_frame_handle(iNIC_PRIVATE *pAd, struct sk_buff *skb)
 
 
 
-#ifdef 	CONFIG_CONCURRENT_INIC_SUPPORT	
 		if(((command_type&0x7FFF) == RACFG_CMD_TYPE_BOOTSTRAP)||
 				(((command_type&0x7FFF) == RACFG_CMD_TYPE_SYNC)&&(command_id == RACFG_CMD_GET_MAC)))
 		{
@@ -2825,18 +2403,12 @@ boolean racfg_frame_handle(iNIC_PRIVATE *pAd, struct sk_buff *skb)
 			}				
 		}
 		else
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //			
 
 			// use flg_is_open instead of NETIF_IS_UP to judge if ra0 is up
 			// because NETIF_IS_UP won't true until host get MAC from iNIC
-#ifdef NM_SUPPORT
 			if (!pAd->RaCfgObj.MBSSID[0].MSSIDDev)
-#else
-				if (!pAd->RaCfgObj.MBSSID[0].MSSIDDev || !pAd->RaCfgObj.flg_is_open)
-#endif
 				{
 					//DBGPRINT("Error: MSSIDDev: %x, flg_is_open: %x", pAd->RaCfgObj.MBSSID[0].MSSIDDev, pAd->RaCfgObj.flg_is_open);
-#ifdef 	CONFIG_CONCURRENT_INIC_SUPPORT	
 					/*
 					 * The system heart beat timer is on the main interface.
 					 * Even the main interface is not opened, the heart beat can be received.
@@ -2856,7 +2428,6 @@ boolean racfg_frame_handle(iNIC_PRIVATE *pAd, struct sk_buff *skb)
 							break;
 						}
 					}else
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 					{
 						dev_kfree_skb(skb);
 						return TRUE;
@@ -3255,12 +2826,7 @@ static void rlk_inic_set_mac(iNIC_PRIVATE *pAd, char *mac_addr)
 
 		memmove(pAd->RaCfgObj.MBSSID[j].Bssid, 
 				dev->dev_addr, MAC_ADDR_LEN);
-#ifdef NEW_MBSS_SUPPORT
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 		if(pAd == gAdapter[0])
-#else
-		if(1)
-#endif
 		{
 			if(j > 0){
 				pAd->RaCfgObj.MBSSID[j].Bssid[0] += 2;
@@ -3268,7 +2834,6 @@ static void rlk_inic_set_mac(iNIC_PRIVATE *pAd, char *mac_addr)
 			}
 		}
 		else
-#endif
 		pAd->RaCfgObj.MBSSID[j].Bssid[5] += j;
 		memmove(mbss_dev->dev_addr,
 				pAd->RaCfgObj.MBSSID[j].Bssid, MAC_ADDR_LEN);
@@ -3302,46 +2867,6 @@ static void rlk_inic_set_mac(iNIC_PRIVATE *pAd, char *mac_addr)
 			   wds_dev->dev_addr[5]);
 	}
 
-#ifdef MESH_SUPPORT
-	// MESH
-	for (j = 0; j < MAX_MESH_NUM; j++)
-	{
-		struct net_device *mesh_dev = pAd->RaCfgObj.MESH[j].MSSIDDev;
-		if (!mesh_dev)	continue;
-
-		memmove(pAd->RaCfgObj.MESH[j].Bssid, 
-				dev->dev_addr, MAC_ADDR_LEN);
-
-		// if AP has own Mac, STA Mac same as Main Device
-		if (pAd->RaCfgObj.opmode == 1)
-		{
-#ifdef NEW_MBSS_SUPPORT
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
-			if(pAd == gAdapter[0])
-#else
-			if(1)
-#endif
-			{
-				pAd->RaCfgObj.MESH[j].Bssid[0] += 2;
-				pAd->RaCfgObj.MESH[j].Bssid[0] += ((pAd->RaCfgObj.BssidNum + j - 1) << 2);
-			}
-			else
-#endif
-			pAd->RaCfgObj.MESH[j].Bssid[5] += pAd->RaCfgObj.BssidNum + j;
-		}
-		memmove(mesh_dev->dev_addr,
-				pAd->RaCfgObj.MESH[j].Bssid, MAC_ADDR_LEN);
-		printk("Update MESH(%d) MAC=%02x:%02x:%02x:%02x:%02x:%02x\n",
-			   j, 
-			   mesh_dev->dev_addr[0],
-			   mesh_dev->dev_addr[1],
-			   mesh_dev->dev_addr[2],
-			   mesh_dev->dev_addr[3],
-			   mesh_dev->dev_addr[4],
-			   mesh_dev->dev_addr[5]);
-	}
-#endif // MESH_SUPPORT //
-
 	// APCLI
 	for (j = 0; j < MAX_APCLI_NUM; j++)
 	{
@@ -3350,28 +2875,14 @@ static void rlk_inic_set_mac(iNIC_PRIVATE *pAd, char *mac_addr)
 
 		memmove(pAd->RaCfgObj.APCLI[j].Bssid, 
 				dev->dev_addr, MAC_ADDR_LEN);
-#ifdef NEW_MBSS_SUPPORT
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 		if(pAd == gAdapter[0])
-#else
-		if(1)
-#endif
 		{
 			pAd->RaCfgObj.APCLI[j].Bssid[0] += 2;
-#ifdef MESH_SUPPORT
-			pAd->RaCfgObj.APCLI[j].Bssid[0] += ((pAd->RaCfgObj.BssidNum + MAX_MESH_NUM + j - 1) << 2);
-#else
 			pAd->RaCfgObj.APCLI[j].Bssid[0] += ((pAd->RaCfgObj.BssidNum + j - 1) << 2);
-#endif
 		}
 		else
-#endif
 		{
 		pAd->RaCfgObj.APCLI[j].Bssid[5] += pAd->RaCfgObj.BssidNum + j;
-#ifdef MESH_SUPPORT
-		if (pAd->RaCfgObj.bMesh)
-			pAd->RaCfgObj.APCLI[j].Bssid[5] += MAX_MESH_NUM;
-#endif // MESH_SUPPORT //
 		}
 		memmove(apcli_dev->dev_addr,
 				pAd->RaCfgObj.APCLI[j].Bssid, MAC_ADDR_LEN);
@@ -3387,190 +2898,15 @@ static void rlk_inic_set_mac(iNIC_PRIVATE *pAd, char *mac_addr)
 }
 
 
-#ifndef NM_SUPPORT
-
-#define TO_RAOBJ(obj)    container_of(obj, RACFG_OBJECT, net_dev_notifier)
-/*
- * Closing MBSS at NETDEV_GOING_DOWN, instead of rlk_inic_close() ,
- * thus we can  send remote TARGET the CLOSE command in time.
- */
- 
-static int netdev_event(
-		struct notifier_block *this,
-		unsigned long event, void *arg)
-{
-	struct net_device *net_dev = netdev_notifier_info_to_dev(arg);
-	RACFG_OBJECT * pRaObj = container_of(this, RACFG_OBJECT, net_dev_notifier);
-	struct net_device *curr_dev = pRaObj->MainDev;
-	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *) netdev_priv(curr_dev);
-
-	printk("EVENT 0x%lu\n",event);
-	if (event == NETDEV_UP) {
-		if(!strncmp(net_dev->name, miimaster, strlen(miimaster))){
-			dev_dbg(&pAd->dev->dev, "MII Master [%s] UP", net_dev->name);
-			// TODO : Threads can(currently is) be uninitialized
-			//		RaCfgFifoRestart(pAd);
-		} else {
-			dev_dbg(&pAd->dev->dev, "NETDEV %s UP", net_dev->name);
-		}
-	} else if (event == NETDEV_GOING_DOWN){
-		if (arg)
-		{
-
-#ifdef WOWLAN_SUPPORT 	
-			if(pRaObj->bWoWlanUp == TRUE && pRaObj->pm_wow_state == WOW_CPU_DOWN )
-			{
-				DBGPRINT("CPU is in Sleep mode....\n");
-				return NOTIFY_OK;
-			}
-			else
-			{
-				DBGPRINT("pRaObj->pm_wow_state = %ld \n", pRaObj->pm_wow_state);
-			}
-#endif // WOWLAN_SUPPORT // 			
-
-			if (!strncmp(net_dev->name, miimaster, strlen(miimaster)))
-			{
-				dev_dbg(&pAd->dev->dev, "MII Master [%s] DOWN", net_dev->name);
-				close_all_interfaces(net_dev);
-			} else {
-				dev_dbg(&pAd->dev->dev, "NETDEV %s DOWN", net_dev->name);
-			}
-
-		}
-#if (CONFIG_INF_TYPE==INIC_INF_TYPE_MII)
-#ifndef MII_SLAVE_STANDALONE
-				else
-				{
-					struct net_device *dev = (struct net_device *)pRaObj->MainDev;
-					iNIC_PRIVATE *pAd = (iNIC_PRIVATE *) netdev_priv(dev);
-					if (arg == pAd->master && NETIF_IS_UP(dev))
-					{
-						DBGPRINT("WARNING: wireless slave (%s) for "
-								"MII (%s) also going down....\n",
-								pRaObj->MainDev->name,
-								((struct net_device *)arg)->name);
-						dev_close(dev);
-					}
-				}
-#endif // MII_SLAVE_STANDALONE
-#endif // CONFIG_INF_TYPE==INIC_INF_TYPE_MII
-
-
-		return NOTIFY_OK;
-	}
-#if (CONFIG_INF_TYPE==INIC_INF_TYPE_MII)
-
-		else if (event == NETDEV_REGISTER)
-		{
-			if (!pAd->master) // master unregistered, get it back
-			{
-				if (!strcmp(net_dev->name, miimaster))
-				{
-					dev_dbg(&pAd->dev->dev, "MII master (%s) registration detected.\n",
-							net_dev->name);
-					pAd->master = net_dev;
-				}
-			}
-		}
-		else if (event == NETDEV_UNREGISTER)
-		{
-			if (arg)
-			{
-				if (pAd->master)
-				{
-					dev_dbg(&pAd->dev->dev, "MII master (%s) unregistration detected.\n",
-							net_dev->name);
-					pAd->master = NULL;
-				}
-			}
-		}
-#endif
-	return NOTIFY_DONE;
-}
-
-void close_all_interfaces(struct net_device *root_dev)
-{
-	iNIC_PRIVATE *rt = (iNIC_PRIVATE *) netdev_priv(root_dev);
-
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
-	ConcurrentObj.CardCount--;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
-
-	if (rt->RaCfgObj.bWds)
-        rlk_inic_wds_close(rt);
-	if (rt->RaCfgObj.bApcli)
-        rlk_inic_apcli_close(rt);
-#ifdef MESH_SUPPORT
-	if (rt->RaCfgObj.bMesh)
-		rlk_inic_mesh_close(rt);
-#endif // MESH_SUPPORT //
-
-    /* we have to call rlk_inic_mbss_close to send "close ra0" *
-	 * command to iNIC, no matter mbss is enabled or not     */
-    rlk_inic_mbss_close(rt);
-}
-
-#endif // of not define NM_SUPPORT
-
-
-#ifdef WOWLAN_SUPPORT 
- 
-#define TO_RAOBJ_PM(obj)    container_of(obj, RACFG_OBJECT, pm_wow_notifier)
-
-static int pm_wow_event(struct notifier_block *this, unsigned long event, void *arg)
-{
-	RACFG_OBJECT  *pRaObj = (RACFG_OBJECT *)TO_RAOBJ_PM(this);
-
-	printk("INIC host driver receiving cpu notifier \n"); 
-
-	if(pRaObj->bWoWlanUp != TRUE )
-		return NOTIFY_DONE;
-
-    switch (event) 
-	{        
-		case PM_HIBERNATION_PREPARE:        
-		case PM_SUSPEND_PREPARE:   
-		case CPU_DOWN_PREPARE_FROZEN: 	             
-			//cpu goes to sleep 
-			if (pRaObj->pm_wow_state != WOW_CPU_DOWN)
-			{	      
-				pRaObj->pm_wow_state = WOW_CPU_DOWN;   
-				printk("ralink host drivr detect CPU sleep \n"); 
-			}
-			break;              
-		case PM_POST_HIBERNATION:        
-		case PM_POST_SUSPEND:      
-		case CPU_ONLINE_FROZEN:            
-			//cpu goes to wake up  
-			if (pRaObj->pm_wow_state != WOW_CPU_UP)      
-			{
-				pRaObj->pm_wow_state = WOW_CPU_UP;              
-				printk("ralink host drivr detect CPU wakeup \n"); 
-			}
-			break;        
-		default:                
-				break;
-    }
-    			
-	return NOTIFY_DONE;	
-}					   
-#endif // WOWLAN_SUPPORT  //
-
-
 
 void RaCfgInterfaceOpen(iNIC_PRIVATE *pAd)
 {
-#ifdef NM_SUPPORT	
 	pAd->RaCfgObj.flg_is_open = 1;
-#endif	
 }
 
 void RaCfgInterfaceClose(iNIC_PRIVATE *pAd)
 {
-#ifdef NM_SUPPORT	
 	pAd->RaCfgObj.flg_is_open = 0;
-#endif	
 }
 
 #ifdef MULTIPLE_CARD_SUPPORT
@@ -3797,8 +3133,6 @@ boolean CardInfoRead(
 }
 #endif // MULTIPLE_CARD_SUPPORT //
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
-
 extern int profile_get_keyparameter(
 								   const char *   key,
 								   char *   dest,   
@@ -3984,104 +3318,6 @@ void SetRadioOn(iNIC_PRIVATE *pAd, u8 Operation)
 	
 	return;
 }
-
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
-
-#ifdef WOWLAN_SUPPORT
-
-static void RaCfgWowInbandSend(uintptr_t arg)
-{
-	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *)arg;
-	struct net_device	*dev = pAd->dev;
-	
-	u32 sync_info;  
-	struct iwreq wrq;
-	sync_info = 1;
-	memset(&wrq, 0, sizeof(wrq));
-
-	RLK_STRCPY(wrq.ifr_ifrn.ifrn_name, dev->name);
-	wrq.u.data.length = sizeof(u32); 
-	wrq.u.data.pointer = (char *) &sync_info;
-	wrq.u.data.flags = (OID_GET_SET_TOGGLE | RT_OID_802_11_WAKEUP_SYNC);
-
-	/* wrq is allocate in kernel space.  Set wrq.u.data.pointer to kernel_data*/
-	RTMPIoctlHandler(pAd, RT_PRIV_IOCTL, IW_POINT_TYPE, 0, &wrq, (char *) &sync_info, FALSE);	 		
-	//DBGPRINT("==== RaCfgWowInbandSend! ===\n");
-	
-}
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
-static void RaCfgWowInbandTimeout(uintptr_t arg)
-{
-	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *)arg;
-#else
-static void RaCfgWowInbandTimeout(struct timer_list *t)
-{
-	iNIC_PRIVATE *pAd = (iNIC_PRIVATE *) from_timer(pAd, t, &pAd->RaCfgObj.WowInbandSignalTimer);
-#endif
-	
-#ifndef NM_SUPPORT
-	if (!NETIF_IS_UP(pAd->RaCfgObj.MainDev))
-		return;
-#endif
-
-	if (!pAd->RaCfgObj.bWoWlanUp)
-		return;
-	
-	//wow heart beat is sent, only when CPU is up.
-	if (pAd->RaCfgObj.pm_wow_state == WOW_CPU_UP )
-	if(kfifo_is_full(&pAd->RaCfgObj.backlog_fifo)){
-		// TODO : error handling
-	}else {
-		HndlTask new_task = {RaCfgWowInbandSend, pAd};
-		kfifo_in(&pAd->RaCfgObj.backlog_fifo, new_task, 1);
-		wake_up_interruptible(&pAd->RaCfgObj.backlogQH);
-	}
-	mod_timer(&pAd->RaCfgObj.WowInbandSignalTimer, jiffies + WOW_INBAND_TIMEOUT * HZ);
-}
-
-static void RaCfgAddWowInbandTimer(iNIC_PRIVATE *pAd)
-{
-	RTMP_SEM_LOCK(&pAd->RaCfgObj.WowInbandSignalTimerLock);
-
-	if (!pAd->RaCfgObj.bWoWlanUp)
-	{
-		RTMP_SEM_UNLOCK(&pAd->RaCfgObj.WowInbandSignalTimerLock);
-		return;
-	}	
-
-	if (!pAd->RaCfgObj.WowInbandSignalTimer.function)
-	{
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
-		init_timer(&pAd->RaCfgObj.WowInbandSignalTimer);
-		pAd->RaCfgObj.WowInbandSignalTimer.function = RaCfgWowInbandTimeout;
-		pAd->RaCfgObj.WowInbandSignalTimer.data = (uintptr_t)pAd;
-#else
-		timer_setup(&pAd->RaCfgObj.WowInbandSignalTimer, (void *)&RaCfgWowInbandTimeout, 0);
-#endif
-	}
-	mod_timer(&pAd->RaCfgObj.WowInbandSignalTimer, jiffies + WOW_INBAND_TIMEOUT * HZ);
-	RTMP_SEM_UNLOCK(&pAd->RaCfgObj.WowInbandSignalTimerLock);
-}	
-
-static void RaCfgDelHeartWowInbandTimer(iNIC_PRIVATE *pAd)
-{
-	if (!pAd->RaCfgObj.bWoWlanUp)
-		return;	
-	
-	RTMP_SEM_LOCK(&pAd->RaCfgObj.WowInbandSignalTimerLock);
-	if (pAd->RaCfgObj.WowInbandSignalTimer.function)
-	{
-		del_timer_sync(&pAd->RaCfgObj.WowInbandSignalTimer);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
-		pAd->RaCfgObj.WowInbandSignalTimer.function = NULL;
-		pAd->RaCfgObj.WowInbandSignalTimer.data = 0;
-#endif
-	}
-	RTMP_SEM_UNLOCK(&pAd->RaCfgObj.WowInbandSignalTimerLock);
-}
-
-#endif // WOWLAN_SUPPORT //
 
 
 

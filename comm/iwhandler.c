@@ -56,9 +56,7 @@ struct iw_statistics *rlk_inic_get_wireless_stats(
         printk("WARN: IOCTL get_wireless_stats ignored (interface not opened yet)\n");
         return (struct iw_statistics *) NULL;
     }
-#ifdef NM_SUPPORT
 	force_net_running(net_dev);
-#endif
     error = GetStatsHandler(pAd, RACFG_CMD_GET_STATS, dev_id, iw_stats_buffer);
 
 
@@ -120,9 +118,7 @@ rt_ioctl_giwname_wrapper(struct net_device *dev,
         return -EINVAL;
     }
 
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 //	DBGPRINT("IOCTL::%s ==>\n", __FUNCTION__);
 
 	ASSERT(extra == NULL);
@@ -154,9 +150,7 @@ int rt_ioctl_siwfreq_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT("IOCTL::%s ==>\n", __FUNCTION__);
 
 	ASSERT(extra == NULL);
@@ -188,9 +182,7 @@ int rt_ioctl_giwfreq_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT("IOCTL::%s ==>\n", __FUNCTION__);
 
 	ASSERT(extra == NULL);
@@ -223,9 +215,7 @@ int rt_ioctl_siwmode_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT("IOCTL::%s ==>\n", __FUNCTION__);
 
 	ASSERT(extra == NULL);
@@ -256,12 +246,9 @@ int rt_ioctl_siwu32_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	ASSERT(extra != NULL);
 
-#ifdef NM_SUPPORT
      switch( uwrq[0] )
     {
         case RACFG_CONTROL_RESET:
@@ -276,7 +263,6 @@ int rt_ioctl_siwu32_wrapper(struct net_device *dev,
             RaCfgRestart(rt);
             return 0;
     } 
-#endif
 
 	//printk("IOCTL command: %04x subcmd = %d, value=%d\n", cmd, uwrq[0], uwrq[1]);
 	rc = RTMPIoctlHandler(rt, cmd, IW_U32_TYPE, bss_index, (struct iwreq *)uwrq, extra, TRUE);
@@ -303,9 +289,7 @@ int rt_ioctl_giwmode_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT("IOCTL::%s ==>\n", __FUNCTION__);
 
 	ASSERT(extra == NULL);
@@ -337,9 +321,7 @@ int rt_ioctl_siwap_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT("IOCTL::%s ==>\n", __FUNCTION__);
 
 	ASSERT(extra == NULL);
@@ -371,9 +353,7 @@ int rt_ioctl_giwap_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT("IOCTL::%s ==>\n", __FUNCTION__);
 
 	ASSERT(extra == NULL);
@@ -407,9 +387,7 @@ int rt_ioctl_giwaplist_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT(" ===> %s : data->length = %d\n", __FUNCTION__, data->length);
 
 	ASSERT(extra != NULL);
@@ -451,9 +429,7 @@ int rt_ioctl_siwscan_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT(" ===> %s : data->length = %d\n", __FUNCTION__, data->length);
 
 	//ASSERT(extra != NULL);
@@ -489,9 +465,7 @@ int rt_ioctl_giwscan_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//printk(" ===> %s : data->length = %d\n", __FUNCTION__, data->length);
 
 	ASSERT(extra != NULL);
@@ -525,18 +499,6 @@ int rt_ioctl_siwpoint_wrapper(struct net_device *dev,
 	int rc = 0, bss_index = 0, cmd = (int)(info->cmd);
 	int dev_type_flag = 0;
 	
-#ifdef MESH_SUPPORT
-	VIRTUAL_ADAPTER *pVirtualAd;
-    
-	if (dev->priv_flags == INT_MESH)
-    {
-		pVirtualAd = netdev_priv(dev);
-		rt = netdev_priv(pVirtualAd->RtmpDev);
-		
-        dev_type_flag = DEV_TYPE_MESH_FLAG;
-    }		
-#endif // MESH_SUPPORT //
-
 	/* sanity check */
 	if (rt == NULL)
 	{
@@ -548,9 +510,7 @@ int rt_ioctl_siwpoint_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT(" ===> %s : data->length = %d\n", __FUNCTION__, data->length);
 
 	//ASSERT(extra != NULL);
@@ -590,9 +550,7 @@ int rt_ioctl_gsiwpoint_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 //	DBGPRINT(" ===> %s : data->length = %d\n", __FUNCTION__, data->length);
 
 	ASSERT(extra != NULL);
@@ -631,18 +589,6 @@ int rt_ioctl_giwpoint_wrapper(struct net_device *dev,
 	int rc = 0, bss_index = 0, cmd = (int)(info->cmd);
 	int dev_type_flag = 0;
 
-#ifdef MESH_SUPPORT
-	VIRTUAL_ADAPTER *pVirtualAd;
-    
-	if (dev->priv_flags == INT_MESH)
-    {
-		pVirtualAd = netdev_priv(dev);
-		rt = netdev_priv(pVirtualAd->RtmpDev);
-		
-        dev_type_flag = DEV_TYPE_MESH_FLAG;
-    }		
-#endif // MESH_SUPPORT //
-
 	/* sanity check */
 	if (rt == NULL)
 	{
@@ -665,9 +611,7 @@ int rt_ioctl_giwpoint_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT(" ===> %s : data->length = %d\n", __FUNCTION__, data->length);
 
 	ASSERT(extra != NULL);
@@ -708,9 +652,7 @@ int rt_ioctl_siwparam_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT("IOCTL::%s ==>\n", __FUNCTION__);
 
 	ASSERT(extra == NULL);
@@ -741,9 +683,7 @@ int rt_ioctl_giwparam_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//DBGPRINT("IOCTL::%s ==>\n", __FUNCTION__);
 
 	ASSERT(extra == NULL);
@@ -799,9 +739,7 @@ int rt_ioctl_siwencodeext_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//hex_dump("wrqu->encoding.pointer", wrqu->encoding.pointer, wrqu->encoding.length);// peter 0919
 	//hex_dump("extra", extra, wrqu->encoding.length);// peter 0919
 
@@ -836,9 +774,7 @@ int rt_ioctl_giwencodeext_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//hex_dump("wrqu->encoding.pointer", wrqu->encoding.pointer, wrqu->encoding.length);// peter 0919
 	//hex_dump("extra", extra, wrqu->encoding.length);// peter 0919
 
@@ -871,9 +807,7 @@ int rt_ioctl_siwpmksa_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	//hex_dump("wrqu->encoding.pointer", wrqu->encoding.pointer, wrqu->encoding.length);// peter 0919
 	//hex_dump("extra", extra, wrqu->encoding.length);// peter 0919
 
@@ -912,9 +846,7 @@ int rt_private_ioctl_bbp_wrapper(struct net_device *dev,
         printk("WARN: IOCTL %04x ignored (interface not opened yet)\n", cmd);
             return -EINVAL;
         }
-#ifdef NM_SUPPORT
 	force_net_running(dev);
-#endif
 	ASSERT(extra != NULL);
 	memset(&wrq, 0, sizeof(struct iwreq));
 	/* write bbp */

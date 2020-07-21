@@ -41,9 +41,7 @@
 #define FIRMWARE_PATH "iNIC/" CHIP_NAME INTERFACE "/"
 
 #if (CONFIG_INF_TYPE == INIC_INF_TYPE_MII)
-	#ifdef PHASE_LOAD_CODE
 		#define PHASE_FIRMWARE			FIRMWARE_PATH "iNIC.bin"
-	#endif
 #endif
 
 #define AP_FIRMWARE				FIRMWARE_PATH "iNIC_ap.bin"
@@ -62,8 +60,6 @@
 #define CONCURRENT_EEPROM_BIN	FIRMWARE_PATH "iNIC_e2p1.bin"
 
 
-#if defined(MULTIPLE_CARD_SUPPORT) || defined(CONFIG_CONCURRENT_INIC_SUPPORT)
-
 #define STA_CARD_INFO			FIRMWARE_PATH "iNIC_sta_card.dat"
 #define AP_CARD_INFO			FIRMWARE_PATH "iNIC_ap_card.dat"
 // MC: Multple Cards
@@ -75,9 +71,6 @@ extern u8  MC_CardUsed[MAX_NUM_OF_MULTIPLE_CARD];
 extern s32 MC_CardIrq[MAX_NUM_OF_MULTIPLE_CARD];
 
 
-#endif // MULTIPLE_CARD_SUPPORT //
-
-
 /* hardware minimum and maximum for a single frame's data payload */
 #define RLK_INIC_MIN_MTU		64	/* TODO: allow lower, but pad */
 #define RLK_INIC_MAX_MTU		1536
@@ -86,27 +79,15 @@ extern s32 MC_CardIrq[MAX_NUM_OF_MULTIPLE_CARD];
 #define MBSS_MAX_DEV_NUM    32  /* for OS possible ra%d name    */
 #define WDS_MAX_DEV_NUM     32  /* for OS possible wds%d name   */
 #define APCLI_MAX_DEV_NUM   32  /* for OS possible apcli%d name */
-#ifdef MESH_SUPPORT
-#define MESH_MAX_DEV_NUM    32  /* for OS possible mesh%d name */
-#endif // MESH_SUPPORT //
 #define MAX_MBSSID_NUM       8
 #define MAX_WDS_NUM          4
 #define MAX_APCLI_NUM        1
-#ifdef MESH_SUPPORT
-#define MAX_MESH_NUM         1
-#endif // MESH_SUPPORT //
 #define FIRST_MBSSID         1
 #define FIRST_WDSID          0
 #define FIRST_APCLIID        0
-#ifdef MESH_SUPPORT
-#define FIRST_MESHID         0
-#endif // MESH_SUPPORT //
 #define MIN_NET_DEVICE_FOR_MBSSID       0x00 /* defined in iNIC firmware */
 #define MIN_NET_DEVICE_FOR_WDS          0x10 /* defined in iNIC firmware */
 #define MIN_NET_DEVICE_FOR_APCLI        0x20 /* defined in iNIC firmware */
-#ifdef MESH_SUPPORT
-#define MIN_NET_DEVICE_FOR_MESH         0x30 /* defined in iNIC firmware */
-#endif // MESH_SUPPORT //
 
 #define IFNAMSIZ            16
 // !! Be careful to not interfere with enum netdev_priv_flags definition in linux/include/linux/netdevice.h !!
@@ -230,10 +211,8 @@ typedef struct m_file_handle
  {
  	char name[MAX_FILE_NAME_SIZE];
 
- #if defined(MULTIPLE_CARD_SUPPORT) || defined(CONFIG_CONCURRENT_INIC_SUPPORT)
  	/* read name form card file */
  	char read_name[MAX_FILE_NAME_SIZE];
- #endif // MULTIPLE_CARD_SUPPORT || CONFIG_CONCURRENT_INIC_SUPPORT
  	int  seq;
     u32  crc;
     CRC_HEADER hdr;
@@ -266,7 +245,6 @@ typedef struct _VIRTUAL_ADAPTER
 
 //#define TEST_BOOT_RECOVER 1
 
-#ifdef RETRY_PKT_SEND
 #define RetryTimeOut 60    // default 50ms, better set timeout >= 50ms
 #define FwRetryCnt	10		 // retry counts for fw upload
 #define InbandRetryCnt	3	// retry counts for inband
@@ -280,8 +258,6 @@ typedef struct _RETRY_PKT_INFO
 	u8 buffer[MAX_FEEDBACK_LEN];
 } RETRY_PKT_INFO;
 
-#endif
-
 typedef struct __RACFG_OBJECT
 {
 	struct net_device           *MainDev;
@@ -293,37 +269,23 @@ typedef struct __RACFG_OBJECT
 	unsigned char               BssidNum;
 	unsigned char               bWds;						// enable wds interface not
 	unsigned char               bApcli;						// enable apclient interface
-#ifdef MESH_SUPPORT
-	unsigned char               bMesh;						// enable mesh interface
-#endif // MESH_SUPPORT //
 	MULTISSID_STRUCT            MBSSID[MAX_MBSSID_NUM];
 	MULTISSID_STRUCT            WDS[MAX_WDS_NUM];
 	MULTISSID_STRUCT            APCLI[MAX_APCLI_NUM];
-#ifdef MESH_SUPPORT
-	MULTISSID_STRUCT            MESH[MAX_MESH_NUM];
-#endif // MESH_SUPPORT //
 	boolean                     flg_is_open;
 	boolean                     flg_mbss_init;
 	boolean                     flg_wds_init;
 	boolean                     flg_apcli_init;
-#ifdef MESH_SUPPORT
-	boolean                     flg_mesh_init;
-#endif // MESH_SUPPORT //
 	boolean                     wds_close_all;
 	boolean                     mbss_close_all;
 	boolean                     apcli_close_all;
-#ifdef MESH_SUPPORT
-	boolean                     mesh_close_all;
-#endif // MESH_SUPPORT //
 	boolean                     bRestartiNIC;
 	boolean						bGetMac;
 	struct timer_list           heartBeat;					// timer to check the iNIC heart beat
 	RTMP_SPIN_LOCK              timerLock;					// for heartBeat timer
 
-#ifdef RETRY_PKT_SEND
 	struct timer_list           uploadTimer;					// timer to check the iNIC upload process
 	RETRY_PKT_INFO 		RPKTInfo;
-#endif
 
 	int                         wait_completed;
 	RTMP_SPIN_LOCK              waitLock;
@@ -353,10 +315,8 @@ typedef struct __RACFG_OBJECT
     boolean                     firm_simulated;
 #endif
     int                         extraProfileOffset;
-#if defined(MULTIPLE_CARD_SUPPORT) || defined(CONFIG_CONCURRENT_INIC_SUPPORT)
 	s8					InterfaceNumber;
 	u8					bRadioOff;
-#endif 
 
 #ifdef MULTIPLE_CARD_SUPPORT
 	s8					MC_RowID;
@@ -368,26 +328,13 @@ typedef struct __RACFG_OBJECT
 	u16 eapol_command_seq;
 	u16 eapol_seq;
 	boolean               		bLocalAdminAddr;			// for locally administered address
-#ifdef PHASE_LOAD_CODE
 	boolean						bLoadPhase;					//0:initail; 1:load 
 	u8							dropNotifyCount;					//drop notify
-#endif
 #endif
     boolean                     bWpaSupplicantUp;
     int         fw_upload_counter;
     
-#ifdef WOWLAN_SUPPORT
-	struct notifier_block		pm_wow_notifier;
-	unsigned long				pm_wow_state;
-	boolean                     bWoWlanUp;
-	struct timer_list           WowInbandSignalTimer;					// timer to check the WOWLAN heart beat
-	RTMP_SPIN_LOCK              WowInbandSignalTimerLock;				// for WowInbandSignalTimer timer
-	u8							WowInbandInterval;						// WOW inband timer interval					
-#endif // WOWLAN_SUPPORT //     
-    
 } RACFG_OBJECT;
-
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 
 #define CONCURRENT_CARD_NUM 2
 
@@ -400,8 +347,6 @@ FWHandle	ExtEeprom[CONCURRENT_CARD_NUM];
 int			extraProfileOffset2;
 }CONCURRENT_OBJECT;
 
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
-
 #if (CONFIG_INF_TYPE==INIC_INF_TYPE_MII)
 typedef struct inic_private
 {
@@ -413,9 +358,7 @@ typedef struct inic_private
 
 	RACFG_OBJECT	    RaCfgObj;
 	struct iw_statistics iw_stats;
-#ifdef NM_SUPPORT
     int                 (*hardware_reset)(int op);
-#endif
 
 } iNIC_PRIVATE;
 #endif
@@ -445,9 +388,7 @@ typedef struct pid * THREAD_PID;
 #define CHECK_PID_LEGALITY(_pid) if (pid_nr((_pid)) >= 0)
 #define KILL_THREAD_PID(_A, _B, _C) kill_pid((_A), (_B), (_C))
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 extern CONCURRENT_OBJECT ConcurrentObj;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 #if (CONFIG_INF_TYPE == INIC_INF_TYPE_MII)
 extern iNIC_PRIVATE *gAdapter[CONCURRENT_CARD_NUM];

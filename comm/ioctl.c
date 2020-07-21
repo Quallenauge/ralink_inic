@@ -52,8 +52,6 @@ int RTMPIoctlHandler(
 	unsigned short cmd_type = 0;
 	int total;
 
-#ifdef NM_SUPPORT
-
         //if (!netif_running(pAd->RaCfgObj.MBSSID[0].MSSIDDev))
         if (!is_fw_running(pAd)) // fw not running
         {
@@ -73,7 +71,6 @@ int RTMPIoctlHandler(
             }
             return 0;
         }
-#endif
 
     if (!wrq->u.data.pointer)
     {
@@ -113,11 +110,7 @@ int RTMPIoctlHandler(
 	// data
 
 	// type: device type may be marked as APCLI flag, clear it before encode
-#ifdef MESH_SUPPORT
-	p = IWREQencode(p, wrq, type & ~(DEV_TYPE_WDS_FLAG | DEV_TYPE_APCLI_FLAG | DEV_TYPE_MESH_FLAG), kernel_data);
-#else	
 	p = IWREQencode(p, wrq, type & ~(DEV_TYPE_WDS_FLAG | DEV_TYPE_APCLI_FLAG), kernel_data);
-#endif // MESH_SUPPORT //
 	if (p == NULL)
 	{
 		kfree(buffer);
@@ -135,7 +128,6 @@ int RTMPIoctlHandler(
 
 	SendFragmentPackets(pAd, cmd_type, cmd, seq, type, dev_id, buffer, (p - buffer));
 
-#ifdef RETRY_PKT_SEND
 	if (wrq->u.data.flags != fATE_LOAD_EEPROM)
 	{
 		int rspValue = 0;
@@ -152,7 +144,6 @@ int RTMPIoctlHandler(
 			}
 		}while(pAd->RaCfgObj.RPKTInfo.retry > 0);
 	}
-#endif
 
 	kfree(buffer);
 
@@ -374,13 +365,6 @@ int rlk_inic_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
             if_index = WDS_Find_DevID(GET_PARENT(dev), dev);
             dev_type_flag = DEV_TYPE_WDS_FLAG;
         }
-#ifdef MESH_SUPPORT
-		else if (dev->priv_flags == INT_MESH)
-        {
-            if_index = MESH_Find_DevID(GET_PARENT(dev), dev);
-            dev_type_flag = DEV_TYPE_MESH_FLAG;
-        }			
-#endif // MESH_SUPPORT //
     } 
 
 	if (rt == NULL)

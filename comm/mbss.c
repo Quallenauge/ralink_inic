@@ -67,11 +67,9 @@ void rlk_inic_mbss_init (
 		for (index = 0; index < MBSS_MAX_DEV_NUM; index++)
 		{
 
-#if defined(MULTIPLE_CARD_SUPPORT) || defined(CONFIG_CONCURRENT_INIC_SUPPORT)
 			if (pAd->RaCfgObj.InterfaceNumber >= 0)
 				snprintf(slot_name, sizeof(slot_name), "%s%02d%d", INIC_INFNAME, pAd->RaCfgObj.InterfaceNumber, index);
 			else
-#endif
 				snprintf(slot_name, sizeof(slot_name),"%s%d", INIC_INFNAME, index);
 
 			cur_dev_p = DEV_GET_BY_NAME(slot_name);
@@ -91,11 +89,9 @@ void rlk_inic_mbss_init (
 		if (index < MBSS_MAX_DEV_NUM)
 		{
 
-#if defined(MULTIPLE_CARD_SUPPORT) || defined(CONFIG_CONCURRENT_INIC_SUPPORT)
 			if (pAd->RaCfgObj.InterfaceNumber >= 0)
 				snprintf(new_dev_p->name, sizeof(new_dev_p->name), "%s%02d%d", INIC_INFNAME, pAd->RaCfgObj.InterfaceNumber, index);
 			else
-#endif		
 				snprintf(new_dev_p->name, sizeof(new_dev_p->name), "%s%d", INIC_INFNAME, index);
 			printk("Register MBSSID IF (%s)\n", new_dev_p->name);
 		}
@@ -122,12 +118,7 @@ void rlk_inic_mbss_init (
 		memmove(pAd->RaCfgObj.MBSSID[bss_index].Bssid, 
 				main_dev_p->dev_addr, MAC_ADDR_LEN);
 
-#ifdef NEW_MBSS_SUPPORT
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 		if(pAd == gAdapter[0])
-#else
-		if(1)
-#endif
 		{
 			if(bss_index > 0){
 				pAd->RaCfgObj.MBSSID[bss_index].Bssid[0] += 2;
@@ -135,7 +126,6 @@ void rlk_inic_mbss_init (
 			}
 		}
 		else
-#endif
 			pAd->RaCfgObj.MBSSID[bss_index].Bssid[5] += bss_index;
 
 		memmove(new_dev_p->dev_addr,
@@ -204,12 +194,10 @@ int rlk_inic_mbss_close(iNIC_PRIVATE *ad_p)
 
 
 	/* send target command to shut the main interface (0) down */
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	/* Shut down the iNIC after all interface is down */
 	SetRadioOn(ad_p, 0);
 	mdelay(500);
 	if(ConcurrentObj.CardCount== 0)
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //	
 	
 	if (NETIF_IS_UP(ad_p->RaCfgObj.MBSSID[0].MSSIDDev))
 	{
@@ -494,12 +482,6 @@ struct sk_buff*  Insert_Vlan_Tag(
 		source_id = dev_id + MIN_NET_DEVICE_FOR_APCLI + 1;
 		ifname="apcli";
 		break;
-#ifdef MESH_SUPPORT
-	case SOURCE_MESH:
-		source_id = dev_id + MIN_NET_DEVICE_FOR_MESH + 1;
-		ifname="mesh";
-		break;                  
-#endif // MESH_SUPPORT //
 	default:
 		printk("ERROR! Invalid device source id=%d\n", dev_source);
 		break;
@@ -659,22 +641,6 @@ unsigned char Remove_Vlan_Tag(
 					}
 					ASSERT(skb->dev);
 				}
-#ifdef MESH_SUPPORT
-				else if (dev_id >= MIN_NET_DEVICE_FOR_MESH && 
-						 dev_id <  MIN_NET_DEVICE_FOR_MESH + MAX_MESH_NUM)
-				{
-					dev_id -= MIN_NET_DEVICE_FOR_MESH;
-					// identify packet which bssid it come from
-					skb->dev = rt->RaCfgObj.MESH[dev_id].MSSIDDev;
-					{
-						VIRTUAL_ADAPTER *virtual_ad_p = netdev_priv(skb->dev);
-
-						virtual_ad_p->net_stats.rx_packets++;
-						virtual_ad_p->net_stats.rx_bytes += skb->len;
-					}
-					ASSERT(skb->dev);
-				}
-#endif // MESH_SUPPORT //
 
 				else
 				{

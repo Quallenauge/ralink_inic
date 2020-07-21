@@ -93,11 +93,9 @@ void rlk_inic_apcli_init (
 		/* assign interface name to the new network interface */
 		if (index < APCLI_MAX_DEV_NUM)
 		{
-#if defined(MULTIPLE_CARD_SUPPORT) || defined(CONFIG_CONCURRENT_INIC_SUPPORT)
 			if (ad_p->RaCfgObj.InterfaceNumber >= 0)
 				snprintf(new_dev_p->name, sizeof(new_dev_p->name),"apcli%02d_%d", ad_p->RaCfgObj.InterfaceNumber, index);
 			else
-#endif 
 				snprintf(new_dev_p->name, sizeof(new_dev_p->name),"apcli%d", index);
 			printk("Register APCLI IF (apcli%d)\n", index);
 		}
@@ -123,29 +121,15 @@ void rlk_inic_apcli_init (
 		memmove(ad_p->RaCfgObj.APCLI[apcli_index].Bssid, 
 				main_dev_p->dev_addr, MAC_ADDR_LEN);
 
-#ifdef NEW_MBSS_SUPPORT
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 		if(ad_p == gAdapter[0])
-#else
-		if(1)
-#endif
 		{
 			ad_p->RaCfgObj.APCLI[apcli_index].Bssid[0] += 2;
-#ifdef MESH_SUPPORT
-			ad_p->RaCfgObj.APCLI[apcli_index].Bssid[0] += ((ad_p->RaCfgObj.BssidNum + MAX_MESH_NUM + apcli_index - 1) << 2);
-#else
 			ad_p->RaCfgObj.APCLI[apcli_index].Bssid[0] += ((ad_p->RaCfgObj.BssidNum + apcli_index - 1) << 2);
-#endif
 		}
 		else
-#endif
 		{
 			//ad_p->RaCfgObj.APCLI[apcli_index].Bssid[5] += apcli_index;
 			ad_p->RaCfgObj.APCLI[apcli_index].Bssid[5] += ad_p->RaCfgObj.BssidNum + apcli_index;
-#ifdef MESH_SUPPORT
-			if (ad_p->RaCfgObj.bMesh)
-				ad_p->RaCfgObj.APCLI[apcli_index].Bssid[5] += MAX_MESH_NUM;
-#endif // MESH_SUPPORT //
 		}
 		memmove(new_dev_p->dev_addr,
 				ad_p->RaCfgObj.APCLI[apcli_index].Bssid, MAC_ADDR_LEN);

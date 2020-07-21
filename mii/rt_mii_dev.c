@@ -18,9 +18,7 @@ static int csumoff = 0;	// Enable Checksum Offload over IPv4(TCP, UDP)
  int max_fw_upload = 5;	// Max Firmware upload attempt
 static int reset_gpio = -1;	// Reset GPIO struct
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	char *mac2 = "";			// default 00:00:00:00:00:00
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 #ifdef DBG
 	char *root = "";
@@ -36,9 +34,7 @@ module_param(csumoff, int, 0);
 module_param(mode, charp, 0);
 module_param(mac, charp, 0);
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 module_param(mac2, charp, 0);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 module_param(max_fw_upload, int, 0);
 module_param(miimaster, charp, 0);
@@ -49,9 +45,7 @@ MODULE_PARM_DESC(debug, DRV_NAME ": bitmapped message enable number");
 MODULE_PARM_DESC(mode, DRV_NAME ": iNIC operation mode: AP(default) or STA");
 MODULE_PARM_DESC(mac, DRV_NAME ": iNIC mac addr");
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 MODULE_PARM_DESC(mac2, DRV_NAME ": iNIC concurrent mac addr");
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 MODULE_PARM_DESC(max_fw_upload, DRV_NAME ": Max Firmware upload attempt");
 MODULE_PARM_DESC(bridge, DRV_NAME ": on/off iNIC built-in bridge engine");
@@ -59,12 +53,8 @@ MODULE_PARM_DESC(csumoff,
 		DRV_NAME ": on/off checksum offloading over IPv4 <TCP, UDP>");
 MODULE_PARM_DESC(miimaster, DRV_NAME ": MII master device name");
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 MODULE_PARM_DESC(syncmiimac,
 		DRV_NAME ": sync MAC with MII master, This value is forced to 0 in dual concurrent mode");
-#else
-MODULE_PARM_DESC (syncmiimac, DRV_NAME ": sync MAC with MII master");
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 static int mii_open(struct net_device *dev);
 static int mii_close(struct net_device *dev);
@@ -118,9 +108,7 @@ static br_should_route_hook_t *org_br_should_route_hook;
 static int my_br_handle_frame(struct sk_buff *skb){
 	iNIC_PRIVATE *pAd = gAdapter[0];
 	br_should_route_hook_t *rhook;
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	DispatchAdapter(&pAd, skb);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	ASSERT(skb);
 
@@ -145,15 +133,11 @@ static int my_br_handle_frame(struct sk_buff *skb){
 			// reset protocol to in-band frame
 			skb->protocol = htons(0xFFFF);
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
-
 			DispatchAdapter(&pAd, skb);
 			if (pAd == NULL) {
 				printk("Warnning: DEFINE_BR_HANDLE_FRAME pAd is NULL\n");
 				return RX_HANDLER_PASS;
 			}
-
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 			if (racfg_frame_handle(pAd, skb)) {
 				return RX_HANDLER_CONSUMED;
@@ -178,9 +162,7 @@ static int in_band_rcv(struct sk_buff *skb, struct net_device *dev, \
                     struct packet_type *pt, struct net_device *orig_dev) {
 	iNIC_PRIVATE *pAd = gAdapter[0];
 	struct net_device_stats *stats = &pAd->net_stats;
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	DispatchAdapter(&pAd, skb);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 //	DBGPRINT("skb: skb->pkt_type %x, pAd %x, skb->dev %x, pAd->dev %x\n", skb->pkt_type, pAd, skb->dev, pAd->master);
 
 	if (skb->pkt_type == PACKET_OUTGOING || pAd == NULL
@@ -232,19 +214,15 @@ static int ralink_netdev_event(struct notifier_block *this, unsigned long event,
 			// Set new master device
 			SET_NETDEV_DEV(gAdapter[0]->dev, DEV_SHORTCUT(master));
 			gAdapter[0]->master = master;
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 			SET_NETDEV_DEV(gAdapter[1]->dev, DEV_SHORTCUT(master));
 			gAdapter[1]->master = master;
-#endif
 		}else if (event == NETDEV_GOING_DOWN){
 			netdev_info(gAdapter[0]->dev, "Stopping heart beat timer and closing device.\n");
 			RaCfgDelHeartBeatTimer(gAdapter[0]);
 			dev_close(gAdapter[0]->dev);
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 			netdev_info(gAdapter[1]->dev, "Stopping heart beat timer and closing device.\n");
 			RaCfgDelHeartBeatTimer(gAdapter[1]);
 			dev_close(gAdapter[1]->dev);
-#endif
 			printk("Remove inband packet type from master device (%s)\n", miimaster);
 			dev_remove_pack(&in_band_packet_type);
 		}else if (event == NETDEV_UP){
@@ -254,10 +232,8 @@ static int ralink_netdev_event(struct notifier_block *this, unsigned long event,
 
 			dev_open(gAdapter[0]->dev, NULL);
 			RaCfgAddHeartBeatTimer(gAdapter[0]);
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 			dev_open(gAdapter[1]->dev, NULL);
 			RaCfgAddHeartBeatTimer(gAdapter[1]);
-#endif
 		}
 	}
 done:
@@ -310,10 +286,8 @@ void racfg_inband_hook_init(iNIC_PRIVATE *pAd) {
 }
 
 void racfg_inband_hook_cleanup(void) {
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	if (ConcurrentObj.CardCount > 0)
 		return;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	dev_remove_pack(&in_band_packet_type);
 #ifdef DEBUG_HOOK
@@ -356,9 +330,7 @@ static int mii_open(struct net_device *dev) {
 	RaCfgSetUp(pAd, dev);
 //#endif
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	ConcurrentObj.CardCount++;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 	return 0;
 }
 
@@ -366,14 +338,6 @@ static int mii_close(struct net_device *dev) {
 	iNIC_PRIVATE *pAd = netdev_priv(dev);
 	if (netif_msg_ifdown(pAd))
 		DBGPRINT("%s: disabling interface\n", dev->name);
-
-#ifdef WOWLAN_SUPPORT 	
-	if(pAd->RaCfgObj.bWoWlanUp == TRUE && pAd->RaCfgObj.pm_wow_state == WOW_CPU_DOWN )
-	{
-		DBGPRINT("CPU is in Sleep mode & WoW enabled, mii_close do nothing ....\n");
-		return 0;
-	}
-#endif // WOWLAN_SUPPORT //
 
 	SetRadioOn(pAd, 0);
 
@@ -387,9 +351,7 @@ static int mii_close(struct net_device *dev) {
 //#endif
 	RaCfgInterfaceClose(pAd);
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	ConcurrentObj.CardCount--;
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 	return 0;
 }
 
@@ -504,7 +466,6 @@ static int __init rlk_inic_init(void) {
 	iNIC_PRIVATE *pAd;
 	struct net_device *dev, *device, *master;
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	struct net_device *dev2 = NULL;
 	iNIC_PRIVATE *pAd2 = NULL;
 
@@ -512,7 +473,6 @@ static int __init rlk_inic_init(void) {
 		syncmiimac = 0;
 		printk("Warnning!! syncmiimac is foreced to 0 in dual concurrent mode.\n");
 	}
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	master = DEV_GET_BY_NAME(miimaster);
 	if (master == NULL) {
@@ -568,17 +528,11 @@ static int __init rlk_inic_init(void) {
 			pAd->master->dev_addr[0], pAd->master->dev_addr[1], pAd->master->dev_addr[2],
 			pAd->master->dev_addr[3], pAd->master->dev_addr[4], pAd->master->dev_addr[5]);
 
-#ifdef NM_SUPPORT
 	pAd->hardware_reset = mii_hardware_reset;
-#endif
 	dev->netdev_ops = &Netdev_Ops[0];
 
 	for (i = 0; i < 32; i++) {
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 		snprintf(dev->name, sizeof(dev->name), "%s00%d", INIC_INFNAME, i);
-#else
-		snprintf(name, sizeof(name), "%s%d", INIC_INFNAME, i);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 		device = DEV_GET_BY_NAME(name);
 		if (device == NULL)
@@ -591,18 +545,13 @@ static int __init rlk_inic_init(void) {
 		goto err_out_free;
 	}
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	snprintf(dev->name, sizeof(dev->name), "%s00%d", INIC_INFNAME, i);
-#else
-	snprintf(dev->name, sizeof(dev->name), "%s%d", INIC_INFNAME, i);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	// Be sure to init racfg before register_netdev,Otherwise 
 	// network manager cannot identify ra0 as wireless device
 
 	memset(&pAd->RaCfgObj, 0, sizeof(RACFG_OBJECT));
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	pAd->RaCfgObj.InterfaceNumber = 0;
 
 	ConcurrentCardInfoRead();
@@ -615,7 +564,6 @@ static int __init rlk_inic_init(void) {
 
 	if (strlen(ConcurrentObj.Mac[1]))
 		mac2 = ConcurrentObj.Mac[1];
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	RaCfgInit(pAd, dev, mac, mode, bridge, csumoff);
 
@@ -639,7 +587,6 @@ static int __init rlk_inic_init(void) {
 	}
 #endif
 
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	dev2 = alloc_etherdev(sizeof(iNIC_PRIVATE));
 	if (!dev2) {
 		printk("Can't alloc net device!\n");
@@ -656,9 +603,7 @@ static int __init rlk_inic_init(void) {
 
 	pAd2->dev = dev2;
 	pAd2->master = master;
-#ifdef NM_SUPPORT
 	pAd2->hardware_reset = NULL;
-#endif
 	dev2->netdev_ops = &Netdev_Ops[1];
 	for (i = 0; i < 32; i++) {
 		snprintf(name, sizeof(name), "%s01%d", INIC_INFNAME, i);
@@ -695,8 +640,6 @@ static int __init rlk_inic_init(void) {
 
 	dev2->priv_flags = INT_MAIN;
 
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
-
 	register_netdevice_notifier(&ralink_netdev_notifier);
 	return rc;
 
@@ -710,8 +653,6 @@ module_init(rlk_inic_init);
 static void __exit rlk_inic_exit(void) {
 	iNIC_PRIVATE *pAd;
 	struct net_device *dev;
-
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 
 	pAd = gAdapter[1];
 	dev = pAd->dev;
@@ -728,13 +669,10 @@ static void __exit rlk_inic_exit(void) {
 	}
 
 	unregister_netdev(dev);
-#ifdef NM_SUPPORT 
 	RaCfgStateReset(pAd);
-#endif
 
 	RaCfgExit(pAd);
 	free_netdev(dev);
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
 	pAd = gAdapter[0];
 	dev = pAd->dev;
@@ -751,9 +689,7 @@ static void __exit rlk_inic_exit(void) {
 	}
 
 	unregister_netdev(dev);
-#ifdef NM_SUPPORT 
 	RaCfgStateReset(pAd);
-#endif
 
 	RaCfgExit(pAd);
 	unregister_netdevice_notifier(&ralink_netdev_notifier);

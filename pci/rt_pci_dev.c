@@ -1,7 +1,5 @@
 #include "rlk_inic.h"
-#ifdef NM_SUPPORT
 #include "net/sch_generic.h"
-#endif
 
 #define NETIF_RX_COMPLETE(dev, napi) 	napi_complete(napi)
 #define NETIF_RX_SCHEDULE_PREP(dev, napi) 	napi_schedule_prep(napi)
@@ -229,11 +227,7 @@ static int rlk_inic_rx_poll (struct napi_struct *napi, int budget)
 				   rt->dev->name, entry, status, len);
 
 		buflen = rt->rx_buf_sz + RX_OFFSET;
-#ifdef PCI_FORCE_DMA
-		new_skb = __dev_alloc_skb (buflen, GFP_ATOMIC|GFP_DMA);
-#else
 		new_skb = dev_alloc_skb (buflen);
-#endif
 		if (!new_skb)
 		{
 			rt->net_stats.rx_dropped++;
@@ -739,7 +733,6 @@ static void rlk_inic_reset_hw (iNIC_PRIVATE *rt)
 	printk("LATENCY = %02x, CACHE LINE SIZE = %02x\n", latency, cache_line_size);
 	printk("INT LINE = %d\n", int_reg);
 
-#ifndef PCI_NONE_RESET
 #ifdef PCIE_RESET
 	pci_read_config_word(rt->pdev, RESET_FLR, &reset_flr);
 	printk("Reset PCIe Card\n");
@@ -748,7 +741,6 @@ static void rlk_inic_reset_hw (iNIC_PRIVATE *rt)
 #else
 	printk("Reset PCI Card\n");
 	RT_REG_WRITE32(RESET_CARD, 0x1);
-#endif
 #endif
 
 /* 200ms would BUS error, if in RestartiNIC() */
@@ -850,11 +842,7 @@ static int rlk_inic_refill_rx (iNIC_PRIVATE *rt)
 	{
 		struct sk_buff *skb;
 
-#ifdef PCI_FORCE_DMA
-		skb = __dev_alloc_skb(rt->rx_buf_sz + RX_OFFSET, GFP_ATOMIC|GFP_DMA);
-#else
 		skb = dev_alloc_skb(rt->rx_buf_sz + RX_OFFSET);
-#endif
 		if (!skb)
 		{
 			printk("rlk_inic_refill_rx error: can't alloc skb(%d bytes)!\n", rt->rx_buf_sz + RX_OFFSET);
@@ -1015,31 +1003,7 @@ int rlk_inic_open (struct net_device *dev)
 	if (netif_msg_ifup(rt))
 		printk(KERN_DEBUG "%s: enabling interface\n", dev->name);
 
-#ifndef NM_SUPPORT
-	rc = rlk_inic_alloc_rings(rt);
-	if (rc)
-		return rc;
-
-	rlk_inic_init_hw(rt);
-	rt->int_enable_reg = INT_ENABLE_ALL;
-	rt->int_disable_mask = 0;
-	rc = request_irq(dev->irq, rlk_inic_interrupt, SA_SHIRQ, dev->name, dev);
-	if (rc)
-		goto err_out_hw;
-	netif_carrier_on(dev);
-	netif_start_queue(dev);
-	napi_enable(&rt->napi);
-	rlk_inic_int_enable(rt, rt->int_enable_reg);
-
-	RaCfgSetUp(rt, dev);
-#endif
-
 	return 0;
-#ifndef NM_SUPPORT
-	err_out_hw:
-	rlk_inic_stop_hw(rt);
-	rlk_inic_free_rings(rt);
-#endif
 	return rc;
 }
 
@@ -1047,29 +1011,10 @@ int rlk_inic_open (struct net_device *dev)
 int rlk_inic_close (struct net_device *dev)
 {
 	iNIC_PRIVATE *rt = netdev_priv(dev);
-#ifndef NM_SUPPORT
-	unsigned long flags;
-#endif
 	DBGPRINT("iNIC Closing\n");
 
 	rt->RaCfgObj.bExtEEPROM = FALSE;
 
-#ifndef NM_SUPPORT
-	spin_lock_irqsave(&rt->lock, flags);
-	napi_disable(&rt->napi);
-
-	if (netif_msg_ifdown(rt))
-		DBGPRINT("%s: disabling interface\n", dev->name);
-	netif_stop_queue(dev);
-	netif_carrier_off(dev);
-	rlk_inic_stop_hw(rt);
-	spin_unlock_irqrestore(&rt->lock, flags);
-	//synchronize_irq(dev->irq);
-	free_irq(dev->irq, dev);
-	rlk_inic_free_rings(rt);
-
-	RaCfgStateReset(rt);
-#endif
 	DBGPRINT("iNIC Closed\n");
 
 	RaCfgInterfaceClose(rt);
@@ -1264,7 +1209,6 @@ static int rlk_inic_init_one (struct pci_dev *pdev, const struct pci_device_id *
 	pci_set_master(pdev);
 	dev->priv_flags         = INT_MAIN;
 
-#ifdef NM_SUPPORT
 	rc = rlk_inic_alloc_rings(rt);
 	if (rc)
 		return rc;
@@ -1284,7 +1228,6 @@ static int rlk_inic_init_one (struct pci_dev *pdev, const struct pci_device_id *
 	rtnl_lock();
 
 	RaCfgSetUp(rt, dev);
-#endif
 
 	return 0;
 
@@ -1300,12 +1243,10 @@ static int rlk_inic_init_one (struct pci_dev *pdev, const struct pci_device_id *
 	free_netdev(dev);
 	return rc;
 
-#ifdef NM_SUPPORT
 	err_out_hw:
 	rlk_inic_stop_hw(rt);
 	rlk_inic_free_rings(rt);
 	return rc;
-#endif
 
 }
 
@@ -1319,7 +1260,6 @@ static void rlk_inic_remove_one (struct pci_dev *pdev)
 		MC_CardUsed[rt->RaCfgObj.InterfaceNumber] = 0;	// not clear irq
 #endif // MULTIPLE_CARD_SUPPORT //	
 
-#ifdef NM_SUPPORT
 	if (netif_msg_ifdown(rt))
 		DBGPRINT("%s: disabling interface\n", dev->name);
 	netif_stop_queue(dev);
@@ -1330,7 +1270,6 @@ static void rlk_inic_remove_one (struct pci_dev *pdev)
 	rlk_inic_free_rings(rt);
 
 	RaCfgStateReset(rt);
-#endif
 	//sock_release(nl_sk->SK_SOCKET);
 	RaCfgExit(rt);
 

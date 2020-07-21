@@ -337,14 +337,12 @@ void rlk_inic_read_profile(iNIC_PRIVATE *pAd)
 		pf_name = pAd->RaCfgObj.profile.read_name;
 	else
 #endif //MULTIPLE_CARD_SUPPORT
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	if ((pAd->RaCfgObj.InterfaceNumber >= 0)&&(pAd->RaCfgObj.InterfaceNumber < CONCURRENT_CARD_NUM))
 	{
 		s8 idx = pAd->RaCfgObj.InterfaceNumber;
 		pf_name = ConcurrentObj.Profile[idx].read_name;
 	}
 	else
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 	{
 		if (pAd->RaCfgObj.opmode)
 			pf_name = AP_PROFILE;
@@ -416,42 +414,16 @@ void rlk_inic_read_profile(iNIC_PRIVATE *pAd)
 			pAd->RaCfgObj.bApcli = (unsigned char) simple_strtol(tmpbuf, 0, 10) > 0 ? TRUE : FALSE;
 		}
 	}
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 	// Concurrent Related
 	if (profile_get_keyparameter("DisableRadio", tmpbuf, 10, fw->data))
 	{
 		pAd->RaCfgObj.bRadioOff = (unsigned char) simple_strtol(tmpbuf, 0, 10) > 0 ? TRUE : FALSE;
 	}
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //
 
-#ifdef MESH_SUPPORT
-	// MESH
-	if (profile_get_keyparameter("MeshEnable", tmpbuf, 10, buffer))
-	{
-		pAd->RaCfgObj.bMesh = (unsigned char) simple_strtol(tmpbuf, 0, 10) > 0 ? TRUE : FALSE;
-	}
-#endif // MESH_SUPPORT //					
 	if (profile_get_keyparameter("ExtEEPROM", tmpbuf, 10, fw->data))
 	{
 		pAd->RaCfgObj.bExtEEPROM = (unsigned char) simple_strtol(tmpbuf, 0, 10) > 0 ? TRUE : FALSE;
 	}
-
-#ifdef WOWLAN_SUPPORT
-	if (profile_get_keyparameter("WAKEON_LAN", tmpbuf, 10, buffer))
-	{
-		pAd->RaCfgObj.bWoWlanUp = (unsigned char) simple_strtol(tmpbuf, 0, 10) > 0 ? TRUE : FALSE;
-		printk("bWoWlanUp=%d \n", pAd->RaCfgObj.bWoWlanUp);
-	}
-
-
-	if (profile_get_keyparameter("WOW_INBAND_INTERVAL", tmpbuf, 25, buffer))
-	{
-		pAd->RaCfgObj.WowInbandInterval = (unsigned char) simple_strtol(tmpbuf, 0, 10);
-		printk("WowInbandInterval=%d \n", pAd->RaCfgObj.WowInbandInterval);
-	}
-
-
-#endif // WOWLAN_SUPPORT // 
 
 #if (CONFIG_INF_TYPE==INIC_INF_TYPE_MII)
 	// For locally administered address

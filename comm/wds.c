@@ -91,11 +91,9 @@ void rlk_inic_wds_init (
 				snprintf(new_dev_p->name, sizeof(new_dev_p->name), "wds%02d_%d", ad_p->RaCfgObj.InterfaceNumber, index);
 			else
 #endif // MULTIPLE_CARD_SUPPORT //				
-#ifdef CONFIG_CONCURRENT_INIC_SUPPORT
 			if (ad_p->RaCfgObj.InterfaceNumber >= 0)
 				snprintf(new_dev_p->name, sizeof(new_dev_p->name), "wds%02d_%d", ad_p->RaCfgObj.InterfaceNumber, index);
 			else
-#endif // CONFIG_CONCURRENT_INIC_SUPPORT //				
 				snprintf(new_dev_p->name, sizeof(new_dev_p->name), "wds%d", index);
 			printk("Register WDS IF (wds%d)\n", index);
 		}
