@@ -320,16 +320,25 @@ int profile_get_keyparameter(
 void rlk_inic_read_profile(iNIC_PRIVATE *pAd)
 {
 	char                    *tmpbuf;
+	char                    *profilebuf;
 	unsigned char           *macptr;                            
 	int                     i=0;
 
 	const struct firmware *fw;
 	char *pf_name;
 
+	profilebuf = kcalloc(MAX_INI_BUFFER_SIZE, 1, MEM_ALLOC_FLAG);
+	if (profilebuf == NULL)
+	{
+		dev_err(&pAd->dev->dev, "fail allocate profile buffer\n");
+		return;
+	}
+
 	tmpbuf = kcalloc(MAX_PARAM_BUFFER_SIZE, 1, MEM_ALLOC_FLAG);
 	if (tmpbuf == NULL)
 	{
 		dev_err(&pAd->dev->dev, "fail allocate buffer\n");
+		kfree(profilebuf);
 		return;
 	}
 
@@ -350,15 +359,18 @@ void rlk_inic_read_profile(iNIC_PRIVATE *pAd)
 		else
 			pf_name	= STA_PROFILE;
 	}
-
-	if (0 != request_firmware(&fw, pf_name, &pAd->dev->dev)) {
-		dev_err(&pAd->dev->dev, "failed to load profile: %s\n", pf_name);
+	dev_err(&pAd->dev->dev, "Request profile: %s\n", pf_name);
+	if (0 != request_firmware_into_buf(&fw, pf_name, &pAd->dev->dev, profilebuf, MAX_INI_BUFFER_SIZE*sizeof(char))) {
+		dev_err(&pAd->dev->dev, "Failed to request profile: %s\n", pf_name);
 		goto exit;
 	}
+
+	printk("Loaded firmware size: %d\n", fw->size);
+
 	if (pAd->RaCfgObj.opmode)
 	{
 		// BssidNum; This must read first of other multiSSID field, so list this field first in configuration file
-		if (profile_get_keyparameter("BssidNum", tmpbuf, 25, fw->data))
+		if (profile_get_keyparameter("BssidNum", tmpbuf, 25, profilebuf))
 		{
 			pAd->RaCfgObj.BssidNum = (unsigned char) simple_strtol(tmpbuf, 0, 10);
 			if (pAd->RaCfgObj.BssidNum > MAX_MBSSID_NUM)
@@ -372,7 +384,7 @@ void rlk_inic_read_profile(iNIC_PRIVATE *pAd)
 			}
 		}
 		// VLAN_ID
-		if (profile_get_keyparameter("VLAN_ID", tmpbuf, 256, fw->data))
+		if (profile_get_keyparameter("VLAN_ID", tmpbuf, 256, profilebuf))
 		{
 			for (i=0, macptr = rstrtok(tmpbuf,";"); macptr; macptr = rstrtok(NULL,";"), i++)
 			{
@@ -387,7 +399,7 @@ void rlk_inic_read_profile(iNIC_PRIVATE *pAd)
 		}
 
 		// VLAN_TAG
-		if (profile_get_keyparameter("VLAN_TAG", tmpbuf, 256, fw->data))
+		if (profile_get_keyparameter("VLAN_TAG", tmpbuf, 256, profilebuf))
 		{
 			for (i=0, macptr = rstrtok(tmpbuf,";"); macptr; macptr = rstrtok(NULL,";"), i++)
 			{
@@ -402,38 +414,40 @@ void rlk_inic_read_profile(iNIC_PRIVATE *pAd)
 		}
 
 		// WDS
-		if (profile_get_keyparameter("WdsEnable", tmpbuf, 10, fw->data))
+		if (profile_get_keyparameter("WdsEnable", tmpbuf, 10, profilebuf))
 		{
 
 			pAd->RaCfgObj.bWds = (unsigned char) simple_strtol(tmpbuf, 0, 10) > 0 ? TRUE : FALSE;
 		}
 
 		// APCLI
-		if (profile_get_keyparameter("ApCliEnable", tmpbuf, 10, fw->data))
+		if (profile_get_keyparameter("ApCliEnable", tmpbuf, 10, profilebuf))
 		{
 
 			pAd->RaCfgObj.bApcli = (unsigned char) simple_strtol(tmpbuf, 0, 10) > 0 ? TRUE : FALSE;
 		}
 	}
+
 	// Concurrent Related
-	if (profile_get_keyparameter("DisableRadio", tmpbuf, 10, fw->data))
+	if (profile_get_keyparameter("DisableRadio", tmpbuf, 10, profilebuf))
 	{
 		pAd->RaCfgObj.bRadioOff = (unsigned char) simple_strtol(tmpbuf, 0, 10) > 0 ? TRUE : FALSE;
 	}
 
-	if (profile_get_keyparameter("ExtEEPROM", tmpbuf, 10, fw->data))
+	if (profile_get_keyparameter("ExtEEPROM", tmpbuf, 10, profilebuf))
 	{
 		pAd->RaCfgObj.bExtEEPROM = (unsigned char) simple_strtol(tmpbuf, 0, 10) > 0 ? TRUE : FALSE;
 	}
 
 #if (CONFIG_INF_TYPE==INIC_INF_TYPE_MII)
 	// For locally administered address
-	if (profile_get_keyparameter("LocalAdminAddr", tmpbuf, 10, fw->data))
+	if (profile_get_keyparameter("LocalAdminAddr", tmpbuf, 10, profilebuf))
 	{
 		pAd->RaCfgObj.bLocalAdminAddr = (unsigned char) simple_strtol(tmpbuf, 0, 10) > 0 ? TRUE : FALSE;
 	}
 #endif
 exit:
+	kfree(profilebuf);
 	kfree(tmpbuf);
 	release_firmware(fw);
 }
