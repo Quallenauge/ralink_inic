@@ -194,12 +194,13 @@ static unsigned char *  profile_find_section(const char  *buffer)
 	char temp_buf[32];
 	unsigned char *  ptr;
 
-	RLK_STRCPY(temp_buf, "Default");
+	RLK_STRCPY(temp_buf, "Default\n");
 
-	if ((ptr = rtstrstr(buffer, temp_buf)) != NULL)
-		return(ptr+strlen("\n"));
-	else
+	if ((ptr = rtstrstr(buffer, temp_buf)) != NULL){
+		return ptr;
+	}else{
 		return NULL;
+	}
 }
 
 /*
