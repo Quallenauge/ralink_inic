@@ -2952,8 +2952,12 @@ boolean CardInfoRead(
 	orgfsuid = current_fsuid();
 	orgfsgid = current_fsgid();
 	override_cred = prepare_creds();
-	if (!override_cred)
+	if (!override_cred){
+		printk("!override_cred situation");
+		kfree(tmpbuf);
+		kfree(buffer);
 		return -ENOMEM;
+	}
 	override_cred->fsuid = 0;
 	override_cred->fsgid = 0;
 	old_cred = override_creds(override_cred);
@@ -2975,7 +2979,9 @@ boolean CardInfoRead(
 	if (IS_ERR(srcf))
 	{
 		/* card information file does not exist */
-		DBGPRINT("--> Error %ld opening %s\n", -PTR_ERR(srcf), card_info_path);
+		printk("--> Error %ld opening %s\n", -PTR_ERR(srcf), card_info_path);
+		kfree(tmpbuf);
+		kfree(buffer);
 		return FALSE;
 	}
 
