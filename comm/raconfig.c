@@ -565,6 +565,7 @@ void RaCfgSetUp(iNIC_PRIVATE *pAd, struct net_device *dev)
 		{
 			printk("Read profile[%d]\n", i);
 			rlk_inic_read_profile(gAdapter[i]);
+			printk("Done reading profile[%d]\n", i);
 		}
 	}
 //	rlk_inic_read_profile(pAd);
@@ -984,6 +985,7 @@ int RaCfgOpenFile(iNIC_PRIVATE *pAd, FWHandle *pfwh, int flag)
 
 void RaCfgCloseFile(iNIC_PRIVATE *pAd, FWHandle *pfwh)
 {
+	printk("Release firmware: %s\n", pfwh->name);
 	kfree(pfwh->fw_data);
 	pfwh->fw_data = NULL;
 	pfwh->size = 0;
@@ -1328,7 +1330,7 @@ int _append_extra_profile(iNIC_PRIVATE *pAd, int len)
 			if (!pE2p)
 			{
 				pAd->RaCfgObj.ExtEEPROMSize = 0;
-				printk("upload_profile Error : Can't read External EEPROM File\n");
+				printk("%s:%d: upload_profile Error : Can't read External EEPROM File\n", __FUNCTION__, __LINE__);
 			}
 			else
 			{
@@ -1432,7 +1434,7 @@ int _append_extra_profile2(iNIC_PRIVATE *pAd, int len)
 			if (!pE2p)
 			{
 				pAd->RaCfgObj.ExtEEPROMSize = 0;
-				printk("upload_profile Error : Can't read External EEPROM File\n");
+				printk("%s:%d: upload_profile Error : Can't read External EEPROM File\n", __FUNCTION__, __LINE__);
 			}
 			else
 			{
@@ -1544,7 +1546,7 @@ static void _upload_profile(iNIC_PRIVATE *pAd)
 		{
 			if (!pE2p->fw_data)
 			{
-				printk("upload_profile Error : Can't read External EEPROM File\n");
+				printk("%s:%d: upload_profile Error : Can't read External EEPROM File\n", __FUNCTION__, __LINE__);
 				return;
 			}
 			if(pE2p->r_off < pE2p->size){
@@ -1673,10 +1675,12 @@ static void RaCfgConcurrentOpenAction(void *arg)
 	for(i = 0; i < CONCURRENT_CARD_NUM; i++)
 	{
 		RaCfgCloseFile(pAd, &ConcurrentObj.Profile[i]);
-		if( 0 != RaCfgOpenFile(pAd, &ConcurrentObj.Profile[i],  O_RDONLY))
+		if( 0 != RaCfgOpenFile(pAd, &ConcurrentObj.Profile[i],  O_RDONLY)){
 			return;
+		}
 		if (gAdapter[i]->RaCfgObj.bExtEEPROM)
 		{
+			printk("Open ExtEEPROM file: %s\n", ConcurrentObj.ExtEeprom[i].name);
 			RaCfgCloseFile(gAdapter[i], &ConcurrentObj.ExtEeprom[i]);
 			if( 0 != RaCfgOpenFile(gAdapter[i], &ConcurrentObj.ExtEeprom[i],  O_RDONLY))
 				return;
